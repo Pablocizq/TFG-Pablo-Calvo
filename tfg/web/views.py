@@ -2,4 +2,8 @@ from django.shortcuts import render
 from django.http import HttpResponse
 
 def inicio(request):
-    return HttpResponse("¡Hola, mundo! Esta es mi primera página en Django.")
+    conjunto = {
+        'nombre': 'Conjunto 1',
+        'fecha': '25-10-2025'
+    }
+    return render(request, 'inicio.html', {'conjunto': conjunto})

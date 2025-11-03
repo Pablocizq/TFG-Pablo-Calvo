@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tus conjuntos de datos</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'web/css/inicio.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <h1>Tus conjuntos de datos</h1>
+        <button class="perfil-btn">👤</button>
+    </header>
+    <main class="contenedor">
+        <div class="tarjeta">
+            <div class="info">
+                <h2>{{ conjunto.nombre }}</h2>
+                <p>Fecha: {{ conjunto.fecha }}</p>
+            </div>
+            <div class="acciones">
+                <button class="btn visualizar">Visualizar</button>
+                <button class="btn eliminar">Eliminar</button>
+            </div>
+        </div>
+    </main>
+
+    <button class="boton-flotante">+</button>
+</body>
+</html>

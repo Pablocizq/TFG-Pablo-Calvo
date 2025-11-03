@@ -1,0 +1,115 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f6f8fa;
+    color: #222;
+    margin: 0;
+    padding: 0;
+}
+
+/* Header */
+.header {
+    display: flex;
+    justify-content: center; /* centrar el h1 */
+    align-items: center;
+    padding: 1.5rem 2rem;
+    background-color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    position: sticky;
+    top: 0;
+}
+
+.header h1 {
+    font-size: 1.6rem;
+    margin: 0;
+    font-weight: 600;
+    text-align: center;
+}
+
+.perfil-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    position: absolute; /* colocarlo en la esquina derecha */
+    right: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Contenedor principal */
+.contenedor {
+    display: flex;
+    justify-content: center;
+    margin-top: 4rem;
+}
+
+/* Tarjeta */
+.tarjeta {
+    background-color: white;
+    padding: 1.5rem 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    width: 90%;
+    max-width: 600px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.info h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.info p {
+    margin: 0.4rem 0 0;
+    color: #555;
+}
+
+/* Botones */
+.btn {
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: white;
+}
+
+.visualizar {
+    background-color: #3b82f6; /* azul moderno */
+    margin-right: 0.5rem;
+}
+
+.visualizar:hover {
+    background-color: #2563eb;
+}
+
+.eliminar {
+    background-color: #ef4444;
+}
+
+.eliminar:hover {
+    background-color: #dc2626;
+}
+
+/* Botón flotante (+) */
+.boton-flotante {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background-color: #3b82f6;
+    color: white;
+    font-size: 2rem;
+    border: none;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.boton-flotante:hover {
+    background-color: #2563eb;
+}
