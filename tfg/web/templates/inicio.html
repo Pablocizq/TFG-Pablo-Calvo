@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tus conjuntos de datos</title>
     {% load static %}
-    <link rel="stylesheet" href="{% static 'web/css/inicio.css' %}">
+    <link rel="stylesheet" href="{% static 'web/css/inicio.css' %}?v=20251104">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -13,19 +13,44 @@
         <h1>Tus conjuntos de datos</h1>
         <button class="perfil-btn">👤</button>
     </header>
+
     <main class="contenedor">
-        <div class="tarjeta">
-            <div class="info">
-                <h2>{{ conjunto.nombre }}</h2>
-                <p>Fecha: {{ conjunto.fecha }}</p>
-            </div>
-            <div class="acciones">
-                <button class="btn visualizar">Visualizar</button>
-                <button class="btn eliminar">Eliminar</button>
-            </div>
+        <div class="lista-conjuntos">
+            {% for conjunto in conjuntos %}
+                <div class="tarjeta">
+                    <div class="info">
+                        <h2>{{ conjunto.name }}</h2>
+                        <p>Fecha: {{ conjunto.created_at|date:"d-m-Y" }}</p>
+                    </div>
+                    <div class="acciones">
+                        <button class="btn visualizar">Visualizar</button>
+                        <form method="post" action="{% url 'dataset_delete' conjunto.id_dataset %}" class="delete-form" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn eliminar">Eliminar</button>
+                        </form>
+                    </div>
+                </div>
+            {% empty %}
+                <p style="text-align:center; color:#666;">No hay conjuntos disponibles.</p>
+            {% endfor %}
         </div>
     </main>
 
     <button class="boton-flotante">+</button>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function(){
+        document.querySelectorAll('.delete-form').forEach(function(form){
+            form.addEventListener('submit', function(e){
+                e.preventDefault();
+                var tarjeta = form.closest('.tarjeta');
+                var nombre = tarjeta ? (tarjeta.querySelector('h2') ? tarjeta.querySelector('h2').textContent : 'este conjunto') : 'este conjunto';
+                if (confirm('¿Estás seguro que quieres eliminar "' + nombre + '"? Esta acción no se puede deshacer.')){
+                    form.submit();
+                }
+            });
+        });
+    });
+    </script>
 </body>
 </html>

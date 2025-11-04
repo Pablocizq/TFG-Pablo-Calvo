@@ -9,7 +9,7 @@ body {
 /* Header */
 .header {
     display: flex;
-    justify-content: center; /* centrar el h1 */
+    justify-content: center;
     align-items: center;
     padding: 1.5rem 2rem;
     background-color: #ffffff;
@@ -30,30 +30,45 @@ body {
     border: none;
     font-size: 1.5rem;
     cursor: pointer;
-    position: absolute; /* colocarlo en la esquina derecha */
+    position: absolute;
     right: 1.5rem;
     top: 50%;
     transform: translateY(-50%);
 }
 
-/* Contenedor principal */
+
 .contenedor {
     display: flex;
     justify-content: center;
-    margin-top: 4rem;
+    margin-top: 3rem;
+    padding: 0 2rem;
 }
 
-/* Tarjeta */
+.lista-conjuntos {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 1000px;
+    padding-bottom: 3rem;
+}
+
 .tarjeta {
     background-color: white;
-    padding: 1.5rem 2rem;
+    padding: 2rem 2.5rem;
     border-radius: 12px;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-    width: 90%;
-    max-width: 600px;
+    width: 100%;
+    max-width: 850px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: box-shadow 0.3s ease;
+}
+
+.tarjeta:hover {
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
 .info h2 {
@@ -67,7 +82,6 @@ body {
     color: #555;
 }
 
-/* Botones */
 .btn {
     border: none;
     border-radius: 8px;
@@ -75,10 +89,11 @@ body {
     font-weight: 600;
     cursor: pointer;
     color: white;
+    transition: background-color 0.2s ease;
 }
 
 .visualizar {
-    background-color: #3b82f6; /* azul moderno */
+    background-color: #3b82f6;
     margin-right: 0.5rem;
 }
 
@@ -94,7 +109,6 @@ body {
     background-color: #dc2626;
 }
 
-/* Botón flotante (+) */
 .boton-flotante {
     position: fixed;
     bottom: 2rem;
@@ -108,6 +122,7 @@ body {
     height: 60px;
     cursor: pointer;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    transition: background-color 0.2s ease;
 }
 
 .boton-flotante:hover {
