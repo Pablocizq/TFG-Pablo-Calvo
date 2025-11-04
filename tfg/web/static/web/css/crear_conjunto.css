@@ -1,0 +1,112 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f6f8fa;
+    color: #222;
+    margin: 0;
+    padding: 0;
+}
+
+.header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1.5rem 1.5rem;
+    background-color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    position: sticky;
+    top: 0;
+}
+
+.header h1 {
+    font-size: 1.6rem;
+    margin: 0;
+    font-weight: 600;
+}
+
+.perfil-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    position: absolute;
+    right: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.contenedor {
+    display: flex;
+    justify-content: center;
+    margin-top: 1.8rem;
+}
+
+.formulario {
+    background-color: #ffffff;
+    padding: 2rem 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    width: 90%;
+    max-width: 650px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+}
+
+.campo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+label {
+    font-weight: 600;
+    color: #333;
+}
+
+.input-file,
+.input-text {
+    font-size: 1rem;
+    padding: 0.6rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    outline: none;
+}
+
+.input-text:focus {
+    border-color: #3b82f6;
+}
+
+.formato .opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.botones {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0rem;
+    margin-top: 0rem;
+}
+
+.btn {
+    border: none;
+    border-radius: 8px;
+    padding: 1rem 1rem;
+    font-weight: 600;
+    font-size: 1.5rem;    
+    cursor: pointer;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    flex: 1;
+}
+
+.crear {
+    background-color: #3b82f6;
+}
+
+.crear:hover {
+    background-color: #2563eb;
+}

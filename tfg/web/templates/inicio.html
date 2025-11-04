@@ -39,6 +39,16 @@
     <button class="boton-flotante">+</button>
     
     <script>
+    // Redirigir al pulsar el botón + hacia la vista crear_conjunto
+    document.addEventListener('DOMContentLoaded', function(){
+        var btn = document.querySelector('.boton-flotante');
+        if (btn){
+            btn.addEventListener('click', function(){
+                window.location.href = "{% url 'crear_conjunto' %}";
+            });
+        }
+    });
+
     document.addEventListener('DOMContentLoaded', function(){
         document.querySelectorAll('.delete-form').forEach(function(form){
             form.addEventListener('submit', function(e){

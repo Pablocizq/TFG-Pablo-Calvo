@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear conjunto de datos</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'web/css/crear_conjunto.css' %}?v=20251104">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <header class="header">
+        <h1>Crear conjunto de datos</h1>
+        <button class="perfil-btn">👤</button>
+    </header>
+
+    <main class="contenedor">
+    <form class="formulario" method="POST" action="{% url 'crear_conjunto' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="campo">
+                <label>Selecciona tus ficheros:</label>
+                <input type="file" name="dataset_files" class="input-file" multiple>
+            </div>
+
+            <div class="campo">
+                <label>URL:</label>
+                <!-- El valor de este campo será usado como 'name' en la BD -->
+                <input type="text" name="name" id="dataset_url" placeholder="Introduce una URL" class="input-text">
+            </div>
+
+            <div class="campo formato">
+                <label>Formato:</label>
+                <div class="opciones">
+                    <label><input type="radio" name="formato" value="CSV"> CSV</label>
+                    <label><input type="radio" name="formato" value="RDF-XML"> RDF-XML</label>
+                    <label><input type="radio" name="formato" value="RDF-TURTLE"> RDF-TURTLE</label>
+                    <label><input type="radio" name="formato" value="JSON"> JSON</label>
+                </div>
+            </div>
+
+            <div class="campo">
+                <label>Selecciona metadatos:</label>
+                <input type="file" name="metadata_file" class="input-file">
+            </div>
+
+            <div class="campo">
+                <label>URL de los metadatos:</label>
+                <input type="url" name="metadata_url" placeholder="Introduce URL de los metadatos" class="input-text">
+            </div>
+
+            <div class="botones">
+                <button type="submit" class="btn crear">CREAR METADATOS</button>
+            </div>
+        </form>
+    </main>
+</body>
+</html>
