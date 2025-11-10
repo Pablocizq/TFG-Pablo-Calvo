@@ -16,7 +16,8 @@
     </header>
 
     <main class="contenedor">
-    <form class="formulario" method="POST" action="{% url 'crear_conjunto' %}" enctype="multipart/form-data">
+        <!--method="POST" action="{% url 'crear_conjunto' %}"-->
+    <form class="formulario" enctype="multipart/form-data">
             {% csrf_token %}
             
             <div class="campo">
@@ -51,9 +52,27 @@
             </div>
 
             <div class="botones">
-                <button type="submit" class="btn crear">CREAR METADATOS</button>
+                <!-- Usamos un enlace con JS para capturar el valor del campo 'name' y
+                     redirigir a la vista 'metadatos' pasando el nombre como query param.
+                     De este modo el formulario NO se envía aquí; se guardará desde
+                     metadatos.html cuando el usuario pulse 'GUARDAR CONJUNTO'. -->
+                <a href="#" id="crear-metadatos" class="btn crear">CREAR METADATOS</a>
             </div>
         </form>
     </main>
+    <script>
+        (function(){
+            const btn = document.getElementById('crear-metadatos');
+            if(!btn) return;
+            btn.addEventListener('click', function(e){
+                e.preventDefault();
+                const input = document.getElementById('dataset_url');
+                const name = input ? input.value.trim() : '';
+                const base = "{% url 'metadatos' %}";
+                const qs = name ? ('?name=' + encodeURIComponent(name)) : '';
+                window.location.href = base + qs;
+            });
+        })();
+    </script>
 </body>
 </html>

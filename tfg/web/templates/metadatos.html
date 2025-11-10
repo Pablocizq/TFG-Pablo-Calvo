@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metadatos del Conjunto</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'web/css/metadatos.css' %}?v=20251110">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <!-- Botón/ícono HOME a la izquierda que redirige a la vista 'inicio' -->
+        <a href="{% url 'inicio' %}" class="home-btn" title="Inicio">🏠</a>
+        <h1>Metadatos</h1>
+        <button class="perfil-btn">👤</button>
+    </header>
+
+    <main class="contenedor">
+        <!-- El formulario POST enviará a la vista 'crear_conjunto' para crear el dataset
+             usando el campo oculto 'name' que recibimos por query param desde
+             la página de creación. -->
+        <form class="formulario" method="post" action="{% url 'crear_conjunto' %}">
+            {% csrf_token %}
+            <input type="hidden" name="name" value="{{ name|default:'' }}">
+            <!-- Indica a la vista que debe volver a renderizar metadatos con mensajes -->
+            <input type="hidden" name="next" value="metadatos">
+
+            {% if success %}
+            <div class="notificacion notificacion-exito">{{ success }}</div>
+            {% endif %}
+            {% if error %}
+            <div class="notificacion notificacion-error">{{ error }}</div>
+            {% endif %}
+            
+            <!-- ICONO DESCARGA
+            <div class="acciones-superiores">
+                <button type="button" class="btn-icono descargar" title="Descargar metadatos">⬇️</button>
+                <button type="button" class="btn-icono editar" title="Editar metadatos">✏️</button>
+            </div>-->
+
+            <div class="grid-campos">
+                <div class="campo">
+                    <label>Identificador:</label>
+                    <input type="text" name="identificador" placeholder="Ej. dataset_001">
+                </div>
+
+                <div class="campo">
+                    <label>Título:</label>
+                    <input type="text" name="titulo" placeholder="Título del conjunto">
+                </div>
+
+                <div class="campo campo-largo">
+                    <label>Descripción:</label>
+                    <textarea name="descripcion" rows="3" placeholder="Descripción del conjunto de datos"></textarea>
+                </div>
+
+                <div class="campo">
+                    <label>Tipo:</label>
+                    <input type="text" name="dcat_type" placeholder="Tipo de conjunto (dataset, service...)">
+                </div>
+
+                <div class="campo">
+                    <label>Idioma:</label>
+                    <input type="text" name="idioma" placeholder="Ej. Español">
+                </div>
+
+                <div class="campo">
+                    <label>Tema:</label>
+                    <input type="text" name="tema" placeholder="Ej. Medio ambiente, educación...">
+                </div>
+
+                <div class="campo">
+                    <label>Extensión temporal:</label>
+                    <input type="text" name="extension_temporal" placeholder="Ej. 2020 - 2025">
+                </div>
+
+                <div class="campo">
+                    <label>Extensión espacial:</label>
+                    <input type="text" name="extension_espacial" placeholder="Ej. España, Europa...">
+                </div>
+
+                <div class="campo">
+                    <label>URL de descarga:</label>
+                    <input type="url" name="url_descarga" placeholder="https://...">
+                </div>
+
+                <div class="campo">
+                    <label>Fecha de publicación:</label>
+                    <input type="date" name="issued">
+                </div>
+
+                <div class="campo">
+                    <label>Última modificación:</label>
+                    <input type="date" name="modificado">
+                </div>
+
+                <div class="campo">
+                    <label>Publicador:</label>
+                    <input type="text" name="publisher_name" placeholder="Nombre del publicador">
+                </div>
+
+                <div class="campo">
+                    <label>URL de acceso:</label>
+                    <input type="url" name="url_acceso" placeholder="https://...">
+                </div>
+
+                <div class="campo">
+                    <label>Formato:</label>
+                    <input type="text" name="formato" placeholder="Ej. CSV, JSON, RDF...">
+                </div>
+
+                <div class="campo">
+                    <label>Licencia:</label>
+                    <input type="text" name="licencia" placeholder="Tipo de licencia (CC-BY, etc.)">
+                </div>
+
+                <div class="campo">
+                    <label>Derechos:</label>
+                    <input type="text" name="derechos" placeholder="Descripción de derechos o uso">
+                </div>
+
+                <div class="campo campo-largo">
+                    <label>Descripción de la distribución:</label>
+                    <textarea name="descripcion_distribucion" rows="2" placeholder="Detalles sobre la distribución de los datos"></textarea>
+                </div>
+            </div>
+
+            <div class="botones">
+                <!-- Botón para integración CKAN (no envía el formulario aquí) -->
+                <button type="button" class="btn crear">CREAR DATASET EN CKAN</button>
+                <!-- Este botón sí hace POST a la vista 'crear_conjunto' y guarda el dataset -->
+                <button type="submit" class="btn guardar">GUARDAR CONJUNTO</button>
+            </div>
+        </form>
+    </main>
+    <script>
+        // Oculta notificaciones automáticamente tras 4s
+        (function(){
+            const nots = document.querySelectorAll('.notificacion');
+            if(!nots) return;
+            setTimeout(()=> nots.forEach(n=> n.style.display='none'), 10000);
+        })();
+    </script>
+</body>
+</html>

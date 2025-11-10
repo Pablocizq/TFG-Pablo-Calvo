@@ -33,7 +33,14 @@ def crear_conjunto(request):
     """
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
+        next_page = request.POST.get('next', '')
         if not name:
+            # Si venimos desde metadatos, mostramos el error en esa plantilla
+            if next_page == 'metadatos':
+                return render(request, 'metadatos.html', {
+                    'error': 'El nombre no puede estar vacío.',
+                    'name': name,
+                })
             return render(request, 'crear_conjunto.html', {
                 'error': 'El nombre no puede estar vacío.',
                 'name': name,
@@ -52,13 +59,28 @@ def crear_conjunto(request):
         except DatabaseError as e:
             # Devolver mensaje en plantilla para depuración
             err_msg = str(e)
+            if next_page == 'metadatos':
+                return render(request, 'metadatos.html', {
+                    'error': f'Error al guardar en la base de datos: {err_msg}',
+                    'name': name,
+                })
             return render(request, 'crear_conjunto.html', {
                 'error': f'Error al guardar en la base de datos: {err_msg}',
                 'name': name,
             })
 
-        # Redirigimos a la lista de conjuntos una vez creado.
-        return redirect('inicio')
-
+        # Insert OK
+        if next_page == 'metadatos':
+            # Volvemos a la plantilla de metadatos y mostramos notificación de éxito
+            return render(request, 'metadatos.html', {
+                'success': 'Dataset guardado correctamente.',
+                'name': name,
+            })
     # GET
     return render(request, 'crear_conjunto.html')
+
+def metadatos(request):
+    """Muestra el formulario para ingresar metadatos de un conjunto de datos."""
+    # Si se recibe ?name=... desde crear_conjunto, lo pasamos al template
+    name = request.GET.get('name', '') if request.method == 'GET' else ''
+    return render(request, 'metadatos.html', {'name': name})
