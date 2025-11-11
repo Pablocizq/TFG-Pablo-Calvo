@@ -19,8 +19,8 @@
             {% for conjunto in conjuntos %}
                 <div class="tarjeta">
                     <div class="info">
-                        <h2>{{ conjunto.name }}</h2>
-                        <p>Fecha: {{ conjunto.created_at|date:"d-m-Y" }}</p>
+                        <h2>{{ conjunto.nombre }}</h2>
+                        <p>Fecha: {{ conjunto.fecha_creacion|date:"d-m-Y" }}</p>
                     </div>
                     <div class="acciones">
                         <button class="btn visualizar" data-url="{% url 'visualizar' conjunto.id_dataset %}">Visualizar</button>

@@ -5,9 +5,10 @@ from .models import Dataset
 
 
 def inicio(request):
-    conjuntos = Dataset.objects.all()
+    # Filtramos por el usuario 1 según lo solicitado
+    conjuntos = Dataset.objects.filter(id_usuario=1)
     for conjunto in conjuntos:
-        print(conjunto.name)
+        print(conjunto.nombre)
     return render(request, 'inicio.html', {'conjuntos': conjuntos})
 
 
@@ -49,10 +50,45 @@ def crear_conjunto(request):
         # Procesar inserción en la base de datos
         try:
             with connection.cursor() as cursor:
-                # Ajusta el nombre de la tabla/columnas si tu esquema es distinto.
+                # Insertamos respetando el esquema de db.sql.
+                # Si el POST viene desde metadatos, intentamos guardar también los campos.
+                def nz(val):
+                    v = (val or '').strip()
+                    return v if v != '' else None
+
+                identificador = nz(request.POST.get('identificador'))
+                titulo = nz(request.POST.get('titulo'))
+                descripcion = nz(request.POST.get('descripcion'))
+                dcat_type = nz(request.POST.get('dcat_type'))
+                idioma = nz(request.POST.get('idioma'))
+                tema = nz(request.POST.get('tema'))
+                extension_temporal = nz(request.POST.get('extension_temporal'))
+                extension_espacial = nz(request.POST.get('extension_espacial'))
+                url_descarga = nz(request.POST.get('url_descarga'))
+                issued = nz(request.POST.get('issued'))
+                modificado = nz(request.POST.get('modificado'))
+                publisher_name = nz(request.POST.get('publisher_name'))
+                url_acceso = nz(request.POST.get('url_acceso'))
+                formato = nz(request.POST.get('formato'))
+                licencia = nz(request.POST.get('licencia'))
+                derechos = nz(request.POST.get('derechos'))
+                descripcion_distribucion = nz(request.POST.get('descripcion_distribucion'))
+
                 cursor.execute(
-                    "INSERT INTO dataset (name) VALUES (%s) RETURNING id_dataset, created_at;",
-                    [name]
+                    """
+                    INSERT INTO dataset (
+                        id_usuario, nombre, identificador, titulo, descripcion, dcat_type, idioma, tema,
+                        extension_temporal, extension_espacial, url_descarga, issued, modificado,
+                        publisher_name, url_acceso, formato, licencia, derechos, descripcion_distribucion
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id_dataset, fecha_creacion;
+                    """,
+                    [
+                        1, name, identificador, titulo, descripcion, dcat_type, idioma, tema,
+                        extension_temporal, extension_espacial, url_descarga, issued, modificado,
+                        publisher_name, url_acceso, formato, licencia, derechos, descripcion_distribucion
+                    ]
                 )
                 row = cursor.fetchone()
                 # row será (id_dataset, created_at) si el RETURNING tuvo éxito.
