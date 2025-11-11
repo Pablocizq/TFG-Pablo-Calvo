@@ -68,9 +68,47 @@
                 e.preventDefault();
                 const input = document.getElementById('dataset_url');
                 const name = input ? input.value.trim() : '';
-                const base = "{% url 'metadatos' %}";
-                const qs = name ? ('?name=' + encodeURIComponent(name)) : '';
-                window.location.href = base + qs;
+                
+                // Obtener el formato seleccionado
+                const formatoRadio = document.querySelector('input[name="formato"]:checked');
+                const formato = formatoRadio ? formatoRadio.value : '';
+                
+                // Obtener la URL de metadatos
+                const metadataUrlInput = document.querySelector('input[name="metadata_url"]');
+                const metadataUrl = metadataUrlInput ? metadataUrlInput.value.trim() : '';
+
+                const buildTargetUrl = () => {
+                    const base = "{% url 'metadatos' %}";
+                    const params = new URLSearchParams();
+                    if (name) params.append('name', name);
+                    if (formato) params.append('formato', formato);
+                    if (metadataUrl) params.append('metadata_url', metadataUrl);
+                    const qs = params.toString();
+                    return base + (qs ? ('?' + qs) : '');
+                };
+
+                const fileInput = document.querySelector('input[name="metadata_file"]');
+                const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+
+                const redirect = () => {
+                    window.location.href = buildTargetUrl();
+                };
+
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        sessionStorage.setItem('metadataFileContent', reader.result || '');
+                        redirect();
+                    };
+                    reader.onerror = () => {
+                        sessionStorage.removeItem('metadataFileContent');
+                        redirect();
+                    };
+                    reader.readAsText(file);
+                } else {
+                    sessionStorage.removeItem('metadataFileContent');
+                    redirect();
+                }
             });
         })();
     </script>

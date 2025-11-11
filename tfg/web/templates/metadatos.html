@@ -23,6 +23,9 @@
         <form class="formulario" method="post" action="{% url 'crear_conjunto' %}">
             {% csrf_token %}
             <input type="hidden" name="name" value="{{ name|default:'' }}">
+            <input type="hidden" name="formato" value="{{ formato|default:'' }}">
+            <input type="hidden" name="url_metadatos" value="{{ metadata_url|default:'' }}">
+            <input type="hidden" name="metadata_content" id="metadata-content-field" value="">
             <!-- Indica a la vista que debe volver a renderizar metadatos con mensajes -->
             <input type="hidden" name="next" value="metadatos">
 
@@ -106,11 +109,6 @@
                 </div>
 
                 <div class="campo">
-                    <label>Formato:</label>
-                    <input type="text" name="formato" placeholder="Ej. CSV, JSON, RDF...">
-                </div>
-
-                <div class="campo">
                     <label>Licencia:</label>
                     <input type="text" name="licencia" placeholder="Tipo de licencia (CC-BY, etc.)">
                 </div>
@@ -140,6 +138,22 @@
             const nots = document.querySelectorAll('.notificacion');
             if(!nots) return;
             setTimeout(()=> nots.forEach(n=> n.style.display='none'), 10000);
+        })();
+
+        // Recupera el contenido del fichero de metadatos guardado en sessionStorage
+        (function(){
+            const field = document.getElementById('metadata-content-field');
+            const stored = sessionStorage.getItem('metadataFileContent');
+            if (field && stored !== null) {
+                field.value = stored;
+            }
+
+            const form = document.querySelector('.formulario');
+            if (form) {
+                form.addEventListener('submit', function(){
+                    sessionStorage.removeItem('metadataFileContent');
+                });
+            }
         })();
     </script>
 </body>

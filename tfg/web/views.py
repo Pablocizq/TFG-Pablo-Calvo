@@ -73,21 +73,23 @@ def crear_conjunto(request):
                 licencia = nz(request.POST.get('licencia'))
                 derechos = nz(request.POST.get('derechos'))
                 descripcion_distribucion = nz(request.POST.get('descripcion_distribucion'))
+                url_metadatos = nz(request.POST.get('url_metadatos'))
+                contenido_metadatos = nz(request.POST.get('metadata_content'))
 
                 cursor.execute(
                     """
                     INSERT INTO dataset (
                         id_usuario, nombre, identificador, titulo, descripcion, dcat_type, idioma, tema,
                         extension_temporal, extension_espacial, url_descarga, issued, modificado,
-                        publisher_name, url_acceso, formato, licencia, derechos, descripcion_distribucion
+                        publisher_name, url_acceso, formato, licencia, derechos, descripcion_distribucion, url_metadatos, contenido_metadatos
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id_dataset, fecha_creacion;
                     """,
                     [
                         1, name, identificador, titulo, descripcion, dcat_type, idioma, tema,
                         extension_temporal, extension_espacial, url_descarga, issued, modificado,
-                        publisher_name, url_acceso, formato, licencia, derechos, descripcion_distribucion
+                        publisher_name, url_acceso, formato, licencia, derechos, descripcion_distribucion, url_metadatos, contenido_metadatos
                     ]
                 )
                 row = cursor.fetchone()
@@ -119,7 +121,13 @@ def metadatos(request):
     """Muestra el formulario para ingresar metadatos de un conjunto de datos."""
     # Si se recibe ?name=... desde crear_conjunto, lo pasamos al template
     name = request.GET.get('name', '') if request.method == 'GET' else ''
-    return render(request, 'metadatos.html', {'name': name})
+    formato = request.GET.get('formato', '') if request.method == 'GET' else ''
+    metadata_url = request.GET.get('metadata_url', '') if request.method == 'GET' else ''
+    return render(request, 'metadatos.html', {
+        'name': name,
+        'formato': formato,
+        'metadata_url': metadata_url
+    })
 
 
 def visualizar(request, pk):
