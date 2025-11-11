@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizar conjunto</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'web/css/visualizar.css' %}?v=20251111">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Reutilizamos tipografías/espaciados del resto para mantener coherencia -->
+</head>
+<body>
+    <header class="header">
+        <a href="{% url 'inicio' %}" class="home-btn" title="Inicio">🏠</a>
+        <h1>Visualizando conjunto {{ conjunto.name}}</h1>
+        <button class="perfil-btn">👤</button>
+    </header>
+
+    <main class="contenedor">
+        <section class="panel-visualizacion">
+            <div class="bloque">
+                <h3 class="bloque-titulo">Propiedades:</h3>
+                <p class="propiedades">
+                    {{ propiedades|default:'No hay propiedades para mostrar' }}
+                </p>
+            </div>
+
+            <div class="bloque">
+                <h3 class="bloque-titulo">Extracto del contenido:</h3>
+                <div class="extracto" aria-label="Extracto del contenido">
+<pre class="extracto-pre">{{ extracto|default:'No hay extractos para mostrar' }}</pre>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
+
+

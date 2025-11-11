@@ -23,7 +23,7 @@
                         <p>Fecha: {{ conjunto.created_at|date:"d-m-Y" }}</p>
                     </div>
                     <div class="acciones">
-                        <button class="btn visualizar">Visualizar</button>
+                        <button class="btn visualizar" data-url="{% url 'visualizar' conjunto.id_dataset %}">Visualizar</button>
                         <form method="post" action="{% url 'dataset_delete' conjunto.id_dataset %}" class="delete-form" style="display:inline;">
                             {% csrf_token %}
                             <button type="submit" class="btn eliminar">Eliminar</button>
@@ -58,6 +58,14 @@
                 if (confirm('¿Estás seguro que quieres eliminar "' + nombre + '"? Esta acción no se puede deshacer.')){
                     form.submit();
                 }
+            });
+        });
+
+        // Redirección para botones "Visualizar" manteniendo <button>
+        document.querySelectorAll('button.visualizar').forEach(function(btn){
+            btn.addEventListener('click', function(){
+                var url = btn.getAttribute('data-url');
+                if (url) window.location.href = url;
             });
         });
     });

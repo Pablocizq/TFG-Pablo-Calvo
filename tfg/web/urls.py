@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     path('inicio/', views.inicio, name='inicio'),
     path('dataset/<int:pk>/delete/', views.dataset_delete, name='dataset_delete'),
+    path('dataset/<int:pk>/', views.visualizar, name='visualizar'),
     path('crear-conjunto/', views.crear_conjunto, name='crear_conjunto'),
     path('metadatos/', views.metadatos, name='metadatos'),
 ]

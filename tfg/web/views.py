@@ -84,3 +84,15 @@ def metadatos(request):
     # Si se recibe ?name=... desde crear_conjunto, lo pasamos al template
     name = request.GET.get('name', '') if request.method == 'GET' else ''
     return render(request, 'metadatos.html', {'name': name})
+
+
+def visualizar(request, pk):
+    """Muestra la página de visualización para un conjunto concreto."""
+    conjunto = get_object_or_404(Dataset, pk=pk)
+    context = {
+        'conjunto': conjunto,
+        # Placeholders por si más adelante añadimos propiedades/extracto desde BD
+        'propiedades': request.GET.get('propiedades', ''),
+        'extracto': request.GET.get('extracto', ''),
+    }
+    return render(request, 'visualizar.html', context)

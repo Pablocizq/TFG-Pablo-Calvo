@@ -1,0 +1,115 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f6f8fa;
+    color: #222;
+    margin: 0;
+    padding: 0;
+}
+
+/* Header coherente con el resto */
+.header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    background-color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    position: sticky;
+    top: 0;
+}
+.header h1 {
+    font-size: 1.6rem;
+    margin: 0;
+    font-weight: 600;
+}
+.perfil-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    position: absolute;
+    right: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+}
+.home-btn {
+    position: absolute;
+    left: 1.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    text-decoration: none;
+    font-size: 1.2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+}
+.home-btn:hover { background: #f3f4f6; }
+
+/* Contenedor principal */
+.contenedor {
+    display: flex;
+    justify-content: center;
+    margin-top: 2rem;
+    padding: 1rem;
+}
+
+/* Panel dentro de tarjeta blanca */
+.panel-visualizacion {
+    background-color: #ffffff;
+    padding: 2rem 2.5rem;
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    width: 95%;
+    max-width: 1000px;
+}
+
+.titulo-conjunto {
+    margin: 0 0 1.2rem 0;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.bloque {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 1.2rem 1.4rem;
+    margin-bottom: 1rem;
+}
+
+.bloque-titulo {
+    margin: 0 0 0.8rem 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #222;
+}
+
+.propiedades {
+    margin: 0;
+    color: #1f2937;
+    line-height: 1.6;
+    font-size: 1rem;
+}
+
+.extracto {
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    min-height: 260px;
+    padding: 0.75rem 1rem;
+    overflow: auto;
+}
+
+.extracto-pre {
+    margin: 0;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.95rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+
