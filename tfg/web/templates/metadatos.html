@@ -306,12 +306,42 @@
                     return matched;
                 };
 
+                const parseCsvLine = (line) => {
+                    const result = [];
+                    let current = '';
+                    let inQuotes = false;
+                    
+                    for (let i = 0; i < line.length; i++) {
+                        const char = line[i];
+                        const nextChar = line[i + 1];
+                        
+                        if (char === '"') {
+                            if (inQuotes && nextChar === '"') {
+                                current += '"';
+                                i++;
+                            } else {
+                                inQuotes = !inQuotes;
+                            }
+                        } else if ((char === ',' || char === ';') && !inQuotes) {
+                            result.push(current.trim());
+                            current = '';
+                        } else {
+                            current += char;
+                        }
+                    }
+                    result.push(current.trim());
+                    return result;
+                };
+
                 const attemptCsv = () => {
-                    const lines = stored.split(/\r?\n/).filter(Boolean);
+                    const lines = stored.split(/\r?\n/).filter(line => line.trim().length > 0);
                     if (lines.length < 2) return false;
+                    
                     const delimiter = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ';' : ',';
-                    const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
-                    const values = lines[1].split(delimiter).map(v => v.trim());
+                    
+                    const headers = parseCsvLine(lines[0]).map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+                    const values = parseCsvLine(lines[1]).map(v => v.replace(/^"|"$/g, '').trim());
+                    
                     if (!headers.length || headers.length !== values.length) return false;
 
                     const csvMap = {
@@ -338,9 +368,12 @@
                     Object.entries(csvMap).forEach(([fieldName, keys]) => {
                         keys.forEach(key => {
                             const idx = headers.indexOf(key);
-                            if (idx !== -1) {
-                                setValueIfEmpty(fieldName, values[idx]);
-                                found = true;
+                            if (idx !== -1 && idx < values.length) {
+                                const value = values[idx];
+                                if (value) {
+                                    setValueIfEmpty(fieldName, value);
+                                    found = true;
+                                }
                             }
                         });
                     });
