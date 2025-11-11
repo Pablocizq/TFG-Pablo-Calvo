@@ -149,6 +149,237 @@
             }
 
             const form = document.querySelector('.formulario');
+            const tryPrefill = () => {
+                if (!form || !stored) return;
+
+                let applied = false;
+
+                const setValueIfEmpty = (name, value) => {
+                    if (value === undefined || value === null) return;
+                    const strValue = String(value).trim();
+                    if (!strValue) return;
+                    const input = form.querySelector(`[name="${name}"]`);
+                    if (!input) return;
+                    if (input.value && input.value.trim()) return;
+                    input.value = strValue;
+                    applied = true;
+                };
+
+                const normalize = val => {
+                    if (val === undefined || val === null) return '';
+                    if (Array.isArray(val)) return val.length ? normalize(val[0]) : '';
+                    if (typeof val === 'object') return '';
+                    return String(val).trim();
+                };
+
+                const fieldMapping = {
+                    identificador: ['identificador', 'identifier', 'id'],
+                    titulo: ['titulo', 'title', 'name'],
+                    descripcion: ['descripcion', 'description', 'abstract'],
+                    dcat_type: ['dcat_type', 'type'],
+                    idioma: ['idioma', 'language', 'lang'],
+                    tema: ['tema', 'theme', 'subject'],
+                    extension_temporal: ['extension_temporal', 'temporal', 'temporal_coverage'],
+                    extension_espacial: ['extension_espacial', 'spatial', 'spatial_coverage', 'location'],
+                    url_descarga: ['url_descarga', 'download_url', 'downloadurl'],
+                    issued: ['issued', 'fecha_publicacion', 'published'],
+                    modificado: ['modificado', 'modified', 'updated'],
+                    publisher_name: ['publisher_name', 'publisher', 'creator'],
+                    url_acceso: ['url_acceso', 'access_url', 'accessurl'],
+                    formato: ['formato', 'format', 'media_type'],
+                    licencia: ['licencia', 'license'],
+                    derechos: ['derechos', 'rights'],
+                    descripcion_distribucion: ['descripcion_distribucion', 'distribution_description', 'distribution']
+                };
+
+                const formatHint = (form.querySelector('[name="formato"]')?.value || '').toLowerCase();
+
+                const applyFromObject = obj => {
+                    const lowerKeys = Object.fromEntries(
+                        Object.entries(obj).map(([k, v]) => [k.toLowerCase(), v])
+                    );
+                    Object.entries(fieldMapping).forEach(([fieldName, keys]) => {
+                        const matchKey = keys.find(k => lowerKeys.hasOwnProperty(k));
+                        if (matchKey) {
+                            setValueIfEmpty(fieldName, normalize(lowerKeys[matchKey]));
+                        }
+                    });
+                };
+
+                const attemptJson = () => {
+                    try {
+                        const data = JSON.parse(stored);
+                        if (data && typeof data === 'object') {
+                            applyFromObject(data);
+                            return applied;
+                        }
+                        return false;
+                    } catch (err) {
+                        return false;
+                    }
+                };
+
+                const attemptXml = () => {
+                    try {
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(stored, 'application/xml');
+                        if (xmlDoc.getElementsByTagName('parsererror').length) return false;
+
+                        const selectorMap = {
+                            identificador: ['dct\\:identifier', 'dc\\:identifier', 'identifier', 'rdf\\:about'],
+                            titulo: ['dct\\:title', 'dc\\:title', 'title', 'rdfs\\:label'],
+                            descripcion: ['dct\\:description', 'dc\\:description', 'description'],
+                            dcat_type: ['dcat\\:type', 'type'],
+                            idioma: ['dct\\:language', 'dc\\:language', 'language'],
+                            tema: ['dcat\\:theme', 'theme', 'dct\\:subject'],
+                            extension_temporal: ['dct\\:temporal', 'temporal'],
+                            extension_espacial: ['dct\\:spatial', 'spatial'],
+                            url_descarga: ['dcat\\:downloadURL', 'downloadURL', 'dcat\\:downloadurl'],
+                            issued: ['dct\\:issued', 'issued'],
+                            modificado: ['dct\\:modified', 'modified'],
+                            publisher_name: ['dct\\:publisher', 'publisher'],
+                            url_acceso: ['dcat\\:accessURL', 'accessURL', 'dcat\\:accessurl'],
+                            formato: ['dct\\:format', 'format'],
+                            licencia: ['dct\\:license', 'license'],
+                            derechos: ['dct\\:rights', 'rights'],
+                            descripcion_distribucion: ['dcat\\:distribution', 'distribution']
+                        };
+
+                        const getText = selector => {
+                            const node = xmlDoc.querySelector(selector);
+                            if (!node) return '';
+                            if (node.textContent && node.textContent.trim()) return node.textContent.trim();
+                            const res = node.getAttribute('rdf:resource') || node.getAttribute('rdf:about') || node.getAttribute('resource');
+                            return res ? res.trim() : '';
+                        };
+
+                        Object.entries(selectorMap).forEach(([fieldName, selectors]) => {
+                            selectors.some(selector => {
+                                const value = getText(selector);
+                                if (value) {
+                                    setValueIfEmpty(fieldName, value);
+                                    return true;
+                                }
+                                return false;
+                            });
+                        });
+                        return applied;
+                    } catch (err) {
+                        return false;
+                    }
+                };
+
+                const attemptTurtle = () => {
+                    const turtleMap = {
+                        identificador: ['dct:identifier', 'dc:identifier'],
+                        titulo: ['dct:title', 'dc:title', 'rdfs:label'],
+                        descripcion: ['dct:description', 'dc:description'],
+                        dcat_type: ['dcat:type'],
+                        idioma: ['dct:language', 'dc:language'],
+                        tema: ['dcat:theme', 'dct:subject'],
+                        extension_temporal: ['dct:temporal'],
+                        extension_espacial: ['dct:spatial'],
+                        url_descarga: ['dcat:downloadURL'],
+                        issued: ['dct:issued'],
+                        modificado: ['dct:modified'],
+                        publisher_name: ['dct:publisher'],
+                        url_acceso: ['dcat:accessURL'],
+                        formato: ['dct:format'],
+                        licencia: ['dct:license'],
+                        derechos: ['dct:rights'],
+                        descripcion_distribucion: ['dcat:distribution']
+                    };
+
+                    let matched = false;
+                    const literalRegex = /([A-Za-z0-9_-]+:[A-Za-z0-9_-]+)\s+"([^"]+)"/g;
+                    let match;
+                    while ((match = literalRegex.exec(stored)) !== null) {
+                        const predicate = match[1];
+                        const value = match[2];
+                        Object.entries(turtleMap).forEach(([fieldName, predicates]) => {
+                            if (predicates.includes(predicate)) {
+                                setValueIfEmpty(fieldName, value);
+                                matched = true;
+                            }
+                        });
+                    }
+                    return matched;
+                };
+
+                const attemptCsv = () => {
+                    const lines = stored.split(/\r?\n/).filter(Boolean);
+                    if (lines.length < 2) return false;
+                    const delimiter = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ';' : ',';
+                    const headers = lines[0].split(delimiter).map(h => h.trim().toLowerCase());
+                    const values = lines[1].split(delimiter).map(v => v.trim());
+                    if (!headers.length || headers.length !== values.length) return false;
+
+                    const csvMap = {
+                        identificador: ['identificador', 'identifier', 'id'],
+                        titulo: ['titulo', 'title', 'name'],
+                        descripcion: ['descripcion', 'description'],
+                        dcat_type: ['dcat_type', 'type'],
+                        idioma: ['idioma', 'language'],
+                        tema: ['tema', 'theme', 'subject'],
+                        extension_temporal: ['extension_temporal', 'temporal'],
+                        extension_espacial: ['extension_espacial', 'spatial'],
+                        url_descarga: ['url_descarga', 'download_url', 'downloadurl'],
+                        issued: ['issued', 'fecha_publicacion', 'published'],
+                        modificado: ['modificado', 'modified', 'updated'],
+                        publisher_name: ['publisher', 'publisher_name'],
+                        url_acceso: ['url_acceso', 'access_url', 'accessurl'],
+                        formato: ['formato', 'format'],
+                        licencia: ['licencia', 'license'],
+                        derechos: ['derechos', 'rights'],
+                        descripcion_distribucion: ['descripcion_distribucion', 'distribution_description']
+                    };
+
+                    let found = false;
+                    Object.entries(csvMap).forEach(([fieldName, keys]) => {
+                        keys.forEach(key => {
+                            const idx = headers.indexOf(key);
+                            if (idx !== -1) {
+                                setValueIfEmpty(fieldName, values[idx]);
+                                found = true;
+                            }
+                        });
+                    });
+                    return found;
+                };
+
+                const attemptPlain = () => {
+                    const lines = stored.split(/\r?\n/);
+                    lines.forEach(line => {
+                        const [maybeKey, ...rest] = line.split(':');
+                        if (!maybeKey || !rest.length) return;
+                        const key = maybeKey.trim().toLowerCase();
+                        const value = rest.join(':').trim();
+                        if (!value) return;
+                        Object.entries(fieldMapping).forEach(([fieldName, keys]) => {
+                            if (keys.includes(key)) {
+                                setValueIfEmpty(fieldName, value);
+                            }
+                        });
+                    });
+                    return applied;
+                };
+
+                const strategies = [];
+                if (formatHint.includes('json')) strategies.push(attemptJson);
+                if (formatHint.includes('rdf-xml') || formatHint.includes('xml')) strategies.push(attemptXml);
+                if (formatHint.includes('rdf-turtle') || formatHint.includes('turtle')) strategies.push(attemptTurtle);
+                if (formatHint.includes('csv')) strategies.push(attemptCsv);
+
+                // Fallback attempts, por si el archivo no coincide con la pista
+                strategies.push(attemptJson, attemptXml, attemptTurtle, attemptCsv, attemptPlain);
+
+                for (const strategy of strategies) {
+                    if (strategy()) break;
+                }
+            };
+
+            tryPrefill();
+
             if (form) {
                 form.addEventListener('submit', function(){
                     sessionStorage.removeItem('metadataFileContent');
