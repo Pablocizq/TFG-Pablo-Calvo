@@ -140,3 +140,114 @@ def visualizar(request, pk):
         'extracto': request.GET.get('extracto', ''),
     }
     return render(request, 'visualizar.html', context)
+
+
+def editar_metadatos(request, pk):
+    """Muestra el formulario de edición de metadatos y procesa las actualizaciones."""
+    dataset = get_object_or_404(Dataset, pk=pk)
+    
+    if request.method == 'POST':
+        # Procesar actualización
+        try:
+            with connection.cursor() as cursor:
+                def nz(val):
+                    v = (val or '').strip()
+                    return v if v != '' else None
+
+                identificador = nz(request.POST.get('identificador'))
+                titulo = nz(request.POST.get('titulo'))
+                descripcion = nz(request.POST.get('descripcion'))
+                dcat_type = nz(request.POST.get('dcat_type'))
+                idioma = nz(request.POST.get('idioma'))
+                tema = nz(request.POST.get('tema'))
+                extension_temporal = nz(request.POST.get('extension_temporal'))
+                extension_espacial = nz(request.POST.get('extension_espacial'))
+                url_descarga = nz(request.POST.get('url_descarga'))
+                issued = nz(request.POST.get('issued'))
+                modificado = nz(request.POST.get('modificado'))
+                publisher_name = nz(request.POST.get('publisher_name'))
+                url_acceso = nz(request.POST.get('url_acceso'))
+                formato = nz(request.POST.get('formato'))
+                licencia = nz(request.POST.get('licencia'))
+                derechos = nz(request.POST.get('derechos'))
+                descripcion_distribucion = nz(request.POST.get('descripcion_distribucion'))
+                url_metadatos = nz(request.POST.get('url_metadatos'))
+                contenido_metadatos = nz(request.POST.get('metadata_content'))
+
+                cursor.execute(
+                    """
+                    UPDATE dataset SET
+                        identificador = %s, titulo = %s, descripcion = %s, dcat_type = %s, idioma = %s,
+                        tema = %s, extension_temporal = %s, extension_espacial = %s, url_descarga = %s,
+                        issued = %s, modificado = %s, publisher_name = %s, url_acceso = %s,
+                        formato = %s, licencia = %s, derechos = %s, descripcion_distribucion = %s,
+                        url_metadatos = %s, contenido_metadatos = %s
+                    WHERE id_dataset = %s
+                    """,
+                    [
+                        identificador, titulo, descripcion, dcat_type, idioma,
+                        tema, extension_temporal, extension_espacial, url_descarga,
+                        issued, modificado, publisher_name, url_acceso,
+                        formato, licencia, derechos, descripcion_distribucion,
+                        url_metadatos, contenido_metadatos, pk
+                    ]
+                )
+                
+            dataset_data = _get_dataset_data(pk)
+            return render(request, 'editar_metadatos.html', {
+                'success': 'Metadatos actualizados correctamente.',
+                'dataset': dataset,
+                **dataset_data
+            })
+        except DatabaseError as e:
+            dataset_data = _get_dataset_data(pk)
+            return render(request, 'editar_metadatos.html', {
+                'error': f'Error al actualizar en la base de datos: {str(e)}',
+                'dataset': dataset,
+                **dataset_data
+            })
+    
+    # GET - Cargar datos existentes
+    dataset_data = _get_dataset_data(pk)
+    context = {'dataset': dataset, **dataset_data}
+    return render(request, 'editar_metadatos.html', context)
+
+
+def _get_dataset_data(pk):
+    """Obtiene todos los datos del dataset desde la BD."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT identificador, titulo, descripcion, dcat_type, idioma, tema,
+                   extension_temporal, extension_espacial, url_descarga, issued, modificado,
+                   publisher_name, url_acceso, formato, licencia, derechos,
+                   descripcion_distribucion, url_metadatos, contenido_metadatos
+            FROM dataset
+            WHERE id_dataset = %s
+            """,
+            [pk]
+        )
+        row = cursor.fetchone()
+        if row:
+            return {
+                'identificador': row[0] or '',
+                'titulo': row[1] or '',
+                'descripcion': row[2] or '',
+                'dcat_type': row[3] or '',
+                'idioma': row[4] or '',
+                'tema': row[5] or '',
+                'extension_temporal': row[6] or '',
+                'extension_espacial': row[7] or '',
+                'url_descarga': row[8] or '',
+                'issued': row[9].strftime('%Y-%m-%d') if row[9] else '',
+                'modificado': row[10].strftime('%Y-%m-%d') if row[10] else '',
+                'publisher_name': row[11] or '',
+                'url_acceso': row[12] or '',
+                'formato': row[13] or '',
+                'licencia': row[14] or '',
+                'derechos': row[15] or '',
+                'descripcion_distribucion': row[16] or '',
+                'url_metadatos': row[17] or '',
+                'contenido_metadatos': row[18] or '',
+            }
+    return {}

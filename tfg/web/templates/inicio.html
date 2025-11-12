@@ -24,6 +24,7 @@
                     </div>
                     <div class="acciones">
                         <button class="btn visualizar" data-url="{% url 'visualizar' conjunto.id_dataset %}">Visualizar</button>
+                        <button class="btn editar" data-url="{% url 'editar_metadatos' conjunto.id_dataset %}">Editar</button>
                         <form method="post" action="{% url 'dataset_delete' conjunto.id_dataset %}" class="delete-form" style="display:inline;">
                             {% csrf_token %}
                             <button type="submit" class="btn eliminar">Eliminar</button>
@@ -63,6 +64,14 @@
 
         // Redirección para botones "Visualizar" manteniendo <button>
         document.querySelectorAll('button.visualizar').forEach(function(btn){
+            btn.addEventListener('click', function(){
+                var url = btn.getAttribute('data-url');
+                if (url) window.location.href = url;
+            });
+        });
+
+        // Redirección para botones "Editar" manteniendo <button>
+        document.querySelectorAll('button.editar').forEach(function(btn){
             btn.addEventListener('click', function(){
                 var url = btn.getAttribute('data-url');
                 if (url) window.location.href = url;

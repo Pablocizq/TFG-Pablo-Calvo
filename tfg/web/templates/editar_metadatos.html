@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Metadatos</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'web/css/metadatos.css' %}?v=20251110">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <a href="{% url 'inicio' %}" class="home-btn" title="Inicio">🏠</a>
+        <h1>Editar Metadatos - {{ dataset.nombre }}</h1>
+        <button class="perfil-btn">👤</button>
+    </header>
+
+    <main class="contenedor">
+        <form class="formulario" method="post" action="{% url 'editar_metadatos' dataset.id_dataset %}">
+            {% csrf_token %}
+            <input type="hidden" name="metadata_content" id="metadata-content-field" value="{{ contenido_metadatos|default:'' }}">
+
+            {% if success %}
+            <div class="notificacion notificacion-exito">{{ success }}</div>
+            {% endif %}
+            {% if error %}
+            <div class="notificacion notificacion-error">{{ error }}</div>
+            {% endif %}
+
+            <div class="grid-campos">
+                <div class="campo">
+                    <label>Identificador:</label>
+                    <input type="text" name="identificador" value="{{ identificador|default:'' }}" placeholder="Ej. dataset_001">
+                </div>
+
+                <div class="campo">
+                    <label>Título:</label>
+                    <input type="text" name="titulo" value="{{ titulo|default:'' }}" placeholder="Título del conjunto">
+                </div>
+
+                <div class="campo campo-largo">
+                    <label>Descripción:</label>
+                    <textarea name="descripcion" rows="3" placeholder="Descripción del conjunto de datos">{{ descripcion|default:'' }}</textarea>
+                </div>
+
+                <div class="campo">
+                    <label>Tipo:</label>
+                    <input type="text" name="dcat_type" value="{{ dcat_type|default:'' }}" placeholder="Tipo de conjunto (dataset, service...)">
+                </div>
+
+                <div class="campo">
+                    <label>Idioma:</label>
+                    <input type="text" name="idioma" value="{{ idioma|default:'' }}" placeholder="Ej. Español">
+                </div>
+
+                <div class="campo">
+                    <label>Tema:</label>
+                    <input type="text" name="tema" value="{{ tema|default:'' }}" placeholder="Ej. Medio ambiente, educación...">
+                </div>
+
+                <div class="campo">
+                    <label>Extensión temporal:</label>
+                    <input type="text" name="extension_temporal" value="{{ extension_temporal|default:'' }}" placeholder="Ej. 2020 - 2025">
+                </div>
+
+                <div class="campo">
+                    <label>Extensión espacial:</label>
+                    <input type="text" name="extension_espacial" value="{{ extension_espacial|default:'' }}" placeholder="Ej. España, Europa...">
+                </div>
+
+                <div class="campo">
+                    <label>URL de descarga:</label>
+                    <input type="url" name="url_descarga" value="{{ url_descarga|default:'' }}" placeholder="https://...">
+                </div>
+
+                <div class="campo">
+                    <label>Fecha de publicación:</label>
+                    <input type="date" name="issued" value="{{ issued|default:'' }}">
+                </div>
+
+                <div class="campo">
+                    <label>Última modificación:</label>
+                    <input type="date" name="modificado" value="{{ modificado|default:'' }}">
+                </div>
+
+                <div class="campo">
+                    <label>Publicador:</label>
+                    <input type="text" name="publisher_name" value="{{ publisher_name|default:'' }}" placeholder="Nombre del publicador">
+                </div>
+
+                <div class="campo">
+                    <label>URL de acceso:</label>
+                    <input type="url" name="url_acceso" value="{{ url_acceso|default:'' }}" placeholder="https://...">
+                </div>
+
+                <div class="campo">
+                    <label>Formato:</label>
+                    <input type="text" name="formato" value="{{ formato|default:'' }}" placeholder="Ej. CSV, JSON, RDF...">
+                </div>
+
+                <div class="campo">
+                    <label>Licencia:</label>
+                    <input type="text" name="licencia" value="{{ licencia|default:'' }}" placeholder="Tipo de licencia (CC-BY, etc.)">
+                </div>
+
+                <div class="campo">
+                    <label>Derechos:</label>
+                    <input type="text" name="derechos" value="{{ derechos|default:'' }}" placeholder="Descripción de derechos o uso">
+                </div>
+
+                <div class="campo campo-largo">
+                    <label>Descripción de la distribución:</label>
+                    <textarea name="descripcion_distribucion" rows="2" placeholder="Detalles sobre la distribución de los datos">{{ descripcion_distribucion|default:'' }}</textarea>
+                </div>
+
+                <div class="campo">
+                    <label>URL de metadatos:</label>
+                    <input type="url" name="url_metadatos" value="{{ url_metadatos|default:'' }}" placeholder="https://...">
+                </div>
+            </div>
+
+            <div class="botones">
+                <button type="button" class="btn crear">CREAR DATASET EN CKAN</button>
+                <button type="submit" class="btn guardar">GUARDAR CAMBIOS</button>
+            </div>
+        </form>
+    </main>
+    <script>
+        // Oculta notificaciones automáticamente tras 10s
+        (function(){
+            const nots = document.querySelectorAll('.notificacion');
+            if(!nots) return;
+            setTimeout(()=> nots.forEach(n=> n.style.display='none'), 10000);
+        })();
+    </script>
+</body>
+</html>
+
