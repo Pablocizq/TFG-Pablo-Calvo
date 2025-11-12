@@ -90,24 +90,70 @@
                 const fileInput = document.querySelector('input[name="metadata_file"]');
                 const file = fileInput && fileInput.files ? fileInput.files[0] : null;
 
+                // Obtener los archivos de datos seleccionados
+                const datasetFilesInput = document.querySelector('input[name="dataset_files"]');
+                const datasetFiles = datasetFilesInput && datasetFilesInput.files ? Array.from(datasetFilesInput.files) : [];
+
                 const redirect = () => {
                     window.location.href = buildTargetUrl();
                 };
 
+                // Función para guardar archivos en sessionStorage
+                const saveFiles = async () => {
+                    if (datasetFiles.length > 0) {
+                        const filesData = [];
+                        let filesProcessed = 0;
+                        
+                        for (let i = 0; i < datasetFiles.length; i++) {
+                            const file = datasetFiles[i];
+                            const reader = new FileReader();
+                            
+                            await new Promise((resolve, reject) => {
+                                reader.onload = () => {
+                                    filesData.push({
+                                        name: file.name,
+                                        content: reader.result,
+                                        type: file.type,
+                                        size: file.size
+                                    });
+                                    filesProcessed++;
+                                    resolve();
+                                };
+                                reader.onerror = () => {
+                                    filesProcessed++;
+                                    resolve(); // Continuar aunque haya error
+                                };
+                                reader.readAsDataURL(file);
+                            });
+                        }
+                        
+                        if (filesData.length > 0) {
+                            sessionStorage.setItem('datasetFiles', JSON.stringify(filesData));
+                        } else {
+                            sessionStorage.removeItem('datasetFiles');
+                        }
+                    } else {
+                        sessionStorage.removeItem('datasetFiles');
+                    }
+                };
+
+                // Guardar archivos de metadatos
                 if (file) {
                     const reader = new FileReader();
-                    reader.onload = () => {
+                    reader.onload = async () => {
                         sessionStorage.setItem('metadataFileContent', reader.result || '');
+                        await saveFiles();
                         redirect();
                     };
-                    reader.onerror = () => {
+                    reader.onerror = async () => {
                         sessionStorage.removeItem('metadataFileContent');
+                        await saveFiles();
                         redirect();
                     };
                     reader.readAsText(file);
                 } else {
                     sessionStorage.removeItem('metadataFileContent');
-                    redirect();
+                    saveFiles().then(redirect);
                 }
             });
         })();

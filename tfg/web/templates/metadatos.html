@@ -416,8 +416,25 @@
             tryPrefill();
 
             if (form) {
-                form.addEventListener('submit', function(){
+                form.addEventListener('submit', function(e){
+                    // Recuperar archivos guardados en sessionStorage
+                    const storedFiles = sessionStorage.getItem('datasetFiles');
+                    if (storedFiles) {
+                        try {
+                            let filesInput = form.querySelector('input[name="dataset_files_data"]');
+                            if (!filesInput) {
+                                filesInput = document.createElement('input');
+                                filesInput.type = 'hidden';
+                                filesInput.name = 'dataset_files_data';
+                                form.appendChild(filesInput);
+                            }
+                            filesInput.value = storedFiles;
+                        } catch (err) {
+                            // Silenciar errores
+                        }
+                    }
                     sessionStorage.removeItem('metadataFileContent');
+                    sessionStorage.removeItem('datasetFiles');
                 });
             }
         })();

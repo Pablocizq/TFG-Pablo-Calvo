@@ -4,6 +4,9 @@ from django.db import connection, DatabaseError
 from django.http import HttpResponse
 from django.utils.text import slugify
 from .models import Dataset
+import json
+import base64
+import re
 
 
 def inicio(request):
@@ -96,6 +99,90 @@ def crear_conjunto(request):
                 )
                 row = cursor.fetchone()
                 # row será (id_dataset, created_at) si el RETURNING tuvo éxito.
+                id_dataset = row[0] if row else None
+                
+                # Procesar archivos si existen
+                if id_dataset:
+                    dataset_files_data = request.POST.get('dataset_files_data', '')
+                    if dataset_files_data:
+                        try:
+                            files_data = json.loads(dataset_files_data)
+                            formato_seleccionado = formato or ''
+                            
+                            for file_info in files_data:
+                                # Extraer el contenido base64 (remover el prefijo data:...;base64,)
+                                content_original = file_info.get('content', '')
+                                if not content_original:
+                                    continue
+                                
+                                # Extraer solo la parte base64 (sin el prefijo data:...;base64,)
+                                match = re.search(r'base64,(.+)', content_original)
+                                if match:
+                                    content_base64 = match.group(1)
+                                else:
+                                    content_base64 = content_original
+                                
+                                # Decodificar base64 y manejar archivos binarios
+                                try:
+                                    # Decodificar base64 a bytes para verificar si es binario
+                                    file_bytes = base64.b64decode(content_base64)
+                                    
+                                    # Verificar si el archivo contiene caracteres NUL (es binario)
+                                    if b'\x00' in file_bytes:
+                                        # Es un archivo binario, mantenerlo en base64
+                                        file_content = content_base64
+                                    else:
+                                        # Intentar decodificar como texto
+                                        try:
+                                            file_content = file_bytes.decode('utf-8')
+                                        except UnicodeDecodeError:
+                                            # Si no es UTF-8, intentar con latin-1
+                                            file_content = file_bytes.decode('latin-1')
+                                except Exception:
+                                    continue
+                                
+                                # Determinar tipo_formato
+                                file_name = file_info.get('name', '').lower()
+                                file_type = file_info.get('type', '').lower()
+                                
+                                tipo_formato = None
+                                if formato_seleccionado:
+                                    tipo_formato = formato_seleccionado.upper()
+                                elif file_name.endswith('.csv') or 'csv' in file_type:
+                                    tipo_formato = 'CSV'
+                                elif file_name.endswith('.json') or 'json' in file_type:
+                                    tipo_formato = 'JSON'
+                                elif file_name.endswith('.ttl') or 'turtle' in file_type:
+                                    tipo_formato = 'RDF-TURTLE'
+                                elif file_name.endswith('.xml') or file_name.endswith('.rdf') or 'xml' in file_type or 'rdf' in file_type:
+                                    tipo_formato = 'RDF-XML'
+                                
+                                # Si no se pudo determinar, usar el formato seleccionado o CSV por defecto
+                                if not tipo_formato:
+                                    tipo_formato = formato_seleccionado.upper() if formato_seleccionado else 'CSV'
+                                
+                                # Validar que el tipo_formato sea válido
+                                if tipo_formato not in ['CSV', 'RDF-XML', 'RDF-TURTLE', 'JSON']:
+                                    tipo_formato = 'CSV'
+                                
+                                # Insertar en la tabla FICHERO
+                                cursor.execute(
+                                    """
+                                    INSERT INTO fichero (
+                                        id_dataset, tipo_formato, url_datos, contenido, nombre_archivo
+                                    )
+                                    VALUES (%s, %s, %s, %s, %s)
+                                    """,
+                                    [
+                                        id_dataset,
+                                        tipo_formato,
+                                        None,
+                                        file_content,
+                                        file_info.get('name', '')
+                                    ]
+                                )
+                        except (json.JSONDecodeError, Exception):
+                            pass
         except DatabaseError as e:
             # Devolver mensaje en plantilla para depuración
             err_msg = str(e)
