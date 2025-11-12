@@ -1,6 +1,8 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 from django.db import connection, DatabaseError
+from django.http import HttpResponse
+from django.utils.text import slugify
 from .models import Dataset
 
 
@@ -251,3 +253,128 @@ def _get_dataset_data(pk):
                 'contenido_metadatos': row[18] or '',
             }
     return {}
+
+
+def _escape_literal(value: str) -> str:
+    """Escapa caracteres especiales para usarlos en literales Turtle."""
+    return (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\r", "\\r")
+        .replace("\n", "\\n")
+    )
+
+
+@require_POST
+def generar_turtle(request):
+    """Genera un archivo Turtle con los metadatos proporcionados."""
+    fields = {
+        'name': request.POST.get('name', '').strip(),
+        'identificador': request.POST.get('identificador', '').strip(),
+        'titulo': request.POST.get('titulo', '').strip(),
+        'descripcion': request.POST.get('descripcion', '').strip(),
+        'dcat_type': request.POST.get('dcat_type', '').strip(),
+        'idioma': request.POST.get('idioma', '').strip(),
+        'tema': request.POST.get('tema', '').strip(),
+        'extension_temporal': request.POST.get('extension_temporal', '').strip(),
+        'extension_espacial': request.POST.get('extension_espacial', '').strip(),
+        'url_descarga': request.POST.get('url_descarga', '').strip(),
+        'issued': request.POST.get('issued', '').strip(),
+        'modificado': request.POST.get('modificado', '').strip(),
+        'publisher_name': request.POST.get('publisher_name', '').strip(),
+        'url_acceso': request.POST.get('url_acceso', '').strip(),
+        'formato': request.POST.get('formato', '').strip(),
+        'licencia': request.POST.get('licencia', '').strip(),
+        'derechos': request.POST.get('derechos', '').strip(),
+        'descripcion_distribucion': request.POST.get('descripcion_distribucion', '').strip(),
+        'url_metadatos': request.POST.get('url_metadatos', '').strip(),
+    }
+
+    dataset_identifier = fields['identificador'] or fields['name'] or 'dataset'
+    slug = slugify(dataset_identifier) or 'dataset'
+    dataset_uri = f"<urn:dataset:{slug}>"
+
+    prefixes = (
+        "@prefix dct: <http://purl.org/dc/terms/> .\n"
+        "@prefix dcat: <http://www.w3.org/ns/dcat#> .\n"
+        "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n"
+        "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\n"
+    )
+
+    statements = []
+
+    def add_literal(predicate, value, lang=None, datatype=None):
+        if not value:
+            return
+        literal = _escape_literal(value)
+        if datatype:
+            statements.append([f'{predicate} "{literal}"^^{datatype}'])
+        elif lang:
+            statements.append([f'{predicate} "{literal}"@{lang}'])
+        else:
+            statements.append([f'{predicate} "{literal}"'])
+
+    def add_uri(predicate, value):
+        if not value:
+            return
+        statements.append([f'{predicate} <{value}>'])
+
+    add_literal('dct:identifier', fields['identificador'])
+    add_literal('dct:title', fields['titulo'], lang='es')
+    add_literal('dct:description', fields['descripcion'], lang='es')
+    add_literal('dct:type', fields['dcat_type'])
+    add_literal('dct:language', fields['idioma'])
+    add_literal('dcat:theme', fields['tema'])
+    add_literal('dct:temporal', fields['extension_temporal'])
+    add_literal('dct:spatial', fields['extension_espacial'])
+    add_literal('dct:issued', fields['issued'], datatype='xsd:date')
+    add_literal('dct:modified', fields['modificado'], datatype='xsd:date')
+    add_literal('dct:format', fields['formato'])
+    add_literal('dct:license', fields['licencia'])
+    add_literal('dct:rights', fields['derechos'])
+    add_uri('dcat:landingPage', fields['url_metadatos'])
+    add_uri('dcat:downloadURL', fields['url_descarga'])
+    add_uri('dcat:accessURL', fields['url_acceso'])
+
+    if fields['publisher_name']:
+        statements.append([
+            'dct:publisher [',
+            f'        foaf:name "{_escape_literal(fields["publisher_name"])}"@es',
+            '    ]'
+        ])
+
+    distribution_parts = []
+    if fields['descripcion_distribucion']:
+        distribution_parts.append(f'dct:description "{_escape_literal(fields["descripcion_distribucion"])}"@es')
+    if fields['url_descarga']:
+        distribution_parts.append(f'dcat:downloadURL <{fields["url_descarga"]}>')
+    if fields['url_acceso']:
+        distribution_parts.append(f'dcat:accessURL <{fields["url_acceso"]}>')
+    if fields['formato']:
+        distribution_parts.append(f'dct:format "{_escape_literal(fields["formato"])}"')
+
+    if distribution_parts:
+        statements.append(
+            ['dcat:distribution ['] +
+            [f'        {part}' for part in distribution_parts] +
+            ['    ]']
+        )
+
+    lines = [prefixes, f"{dataset_uri} a dcat:Dataset"]
+    if statements:
+        lines[-1] += " ;"
+        for idx, stmt_lines in enumerate(statements):
+            terminator = " ;" if idx < len(statements) - 1 else " ."
+            for line_idx, content in enumerate(stmt_lines):
+                if line_idx == len(stmt_lines) - 1:
+                    lines.append(f"    {content}{terminator}")
+                else:
+                    lines.append(f"    {content}")
+    else:
+        lines[-1] += " ."
+
+    turtle_content = "\n".join(lines) + "\n"
+    filename = f"metadatos_{slug}.ttl"
+    response = HttpResponse(turtle_content, content_type="text/turtle; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response

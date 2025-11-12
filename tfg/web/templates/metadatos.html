@@ -16,6 +16,8 @@
         <button class="perfil-btn">👤</button>
     </header>
 
+    <button type="button" id="descargar-turtle" class="descargar-turtle-btn">Descargar Turtle</button>
+
     <main class="contenedor">
         <!-- El formulario POST enviará a la vista 'crear_conjunto' para crear el dataset
              usando el campo oculto 'name' que recibimos por query param desde
@@ -418,6 +420,46 @@
                     sessionStorage.removeItem('metadataFileContent');
                 });
             }
+        })();
+
+        // Generación y descarga del archivo Turtle con los metadatos actuales
+        (function(){
+            const form = document.querySelector('.formulario');
+            const downloadBtn = document.getElementById('descargar-turtle');
+            if (!form || !downloadBtn) return;
+
+            downloadBtn.addEventListener('click', async function(){
+                const formData = new FormData(form);
+                const metadataField = document.getElementById('metadata-content-field');
+                if (metadataField) {
+                    formData.set('metadata_content', metadataField.value || '');
+                }
+
+                try {
+                    const response = await fetch("{% url 'generar_turtle' %}", {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(errorText || 'Error al generar el archivo Turtle.');
+                    }
+
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const enlace = document.createElement('a');
+                    const baseName = formData.get('identificador') || formData.get('name') || 'metadatos';
+                    enlace.href = url;
+                    enlace.download = `${baseName || 'metadatos'}.ttl`;
+                    document.body.appendChild(enlace);
+                    enlace.click();
+                    enlace.remove();
+                    window.URL.revokeObjectURL(url);
+                } catch (err) {
+                    alert('No se pudo generar el archivo Turtle: ' + err.message);
+                }
+            });
         })();
     </script>
 </body>
