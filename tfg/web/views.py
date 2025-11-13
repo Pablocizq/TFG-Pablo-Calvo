@@ -222,13 +222,332 @@ def metadatos(request):
 def visualizar(request, pk):
     """Muestra la página de visualización para un conjunto concreto."""
     conjunto = get_object_or_404(Dataset, pk=pk)
+    
+    # Obtener todos los ficheros del dataset
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT id_fichero, tipo_formato, nombre_archivo, contenido
+            FROM fichero
+            WHERE id_dataset = %s
+            ORDER BY id_fichero
+            """,
+            [pk]
+        )
+        ficheros = cursor.fetchall()
+    
+    # Convertir ficheros a lista de diccionarios
+    ficheros_list = []
+    for f in ficheros:
+        ficheros_list.append({
+            'id': f[0],
+            'tipo_formato': f[1],
+            'nombre_archivo': f[2],
+            'contenido': f[3]
+        })
+    
+    # Paginación: obtener el índice del fichero a mostrar
+    fichero_index = int(request.GET.get('fichero', 0))
+    if fichero_index < 0:
+        fichero_index = 0
+    if fichero_index >= len(ficheros_list):
+        fichero_index = max(0, len(ficheros_list) - 1)
+    
+    # Procesar el fichero actual
+    propiedades = 'No hay propiedades para mostrar'
+    extracto = 'No hay extractos para mostrar'
+    fichero_actual = None
+    
+    if ficheros_list and fichero_index < len(ficheros_list):
+        fichero_actual = ficheros_list[fichero_index]
+        contenido = fichero_actual['contenido']
+        tipo_formato = fichero_actual['tipo_formato']
+        
+        # Procesar según el tipo de formato
+        if contenido:
+            if tipo_formato == 'CSV':
+                propiedades, extracto = _procesar_csv(contenido)
+            elif tipo_formato == 'JSON':
+                propiedades, extracto = _procesar_json(contenido)
+            elif tipo_formato in ['RDF-XML', 'RDF-TURTLE']:
+                propiedades, extracto = _procesar_rdf(contenido, tipo_formato)
+            else:
+                # Archivo binario en base64 o texto plano
+                if _es_base64(contenido):
+                    propiedades = f"Archivo binario: {fichero_actual['nombre_archivo']}"
+                    extracto = "Este archivo está codificado en base64. No se puede mostrar como texto."
+                else:
+                    propiedades = f"Archivo de texto: {fichero_actual['nombre_archivo']}"
+                    extracto = contenido[:1000] + ('...' if len(contenido) > 1000 else '')
+    
+    # Calcular índices para paginación
+    prev_index = fichero_index - 1 if fichero_index > 0 else None
+    next_index = fichero_index + 1 if fichero_index < len(ficheros_list) - 1 else None
+    current_num = fichero_index + 1
+    
     context = {
         'conjunto': conjunto,
-        # Placeholders por si más adelante añadimos propiedades/extracto desde BD
-        'propiedades': request.GET.get('propiedades', ''),
-        'extracto': request.GET.get('extracto', ''),
+        'ficheros': ficheros_list,
+        'fichero_actual': fichero_actual,
+        'fichero_index': fichero_index,
+        'prev_index': prev_index,
+        'next_index': next_index,
+        'current_num': current_num,
+        'total_ficheros': len(ficheros_list),
+        'propiedades': propiedades,
+        'extracto': extracto,
     }
     return render(request, 'visualizar.html', context)
+
+
+def _es_base64(s):
+    """Verifica si una cadena es base64 válido."""
+    try:
+        if isinstance(s, str) and len(s) > 0:
+            # Intentar decodificar
+            base64.b64decode(s, validate=True)
+            # Verificar que no sea texto normal (base64 tiene caracteres específicos)
+            import string
+            base64_chars = string.ascii_letters + string.digits + '+/='
+            if all(c in base64_chars or c.isspace() for c in s[:100]):
+                return True
+    except:
+        pass
+    return False
+
+
+def _procesar_csv(contenido):
+    """Procesa un archivo CSV y extrae propiedades y extracto."""
+    lineas = contenido.split('\n')
+    if not lineas:
+        return 'No hay datos CSV', 'Archivo CSV vacío'
+    
+    # Primera línea como encabezados
+    headers = [h.strip().strip('"') for h in lineas[0].split(',')]
+    
+    # Propiedades: número de columnas, número de filas
+    num_filas = len([l for l in lineas if l.strip()])
+    propiedades = f"Columnas: {len(headers)}\nFilas: {num_filas - 1}\n\nColumnas:\n"
+    propiedades += '\n'.join([f"  - {h}" for h in headers])
+    
+    # Extracto: primeras 10 líneas
+    extracto = '\n'.join(lineas[:10])
+    if len(lineas) > 10:
+        extracto += f"\n\n... ({len(lineas) - 10} líneas más)"
+    
+    return propiedades, extracto
+
+
+def _procesar_json(contenido):
+    """Procesa un archivo JSON y extrae propiedades y extracto."""
+    try:
+        data = json.loads(contenido)
+        
+        if isinstance(data, dict):
+            # Propiedades: claves del objeto
+            propiedades = f"Tipo: Objeto JSON\nClaves: {len(data)}\n\nPropiedades:\n"
+            propiedades += '\n'.join([f"  - {k}: {type(v).__name__}" for k, v in list(data.items())[:20]])
+            if len(data) > 20:
+                propiedades += f"\n  ... ({len(data) - 20} propiedades más)"
+            
+            # Extracto: JSON formateado (primeros 50 caracteres de cada valor)
+            extracto = json.dumps(data, indent=2, ensure_ascii=False)
+            if len(extracto) > 2000:
+                extracto = extracto[:2000] + '\n... (contenido truncado)'
+        elif isinstance(data, list):
+            propiedades = f"Tipo: Array JSON\nElementos: {len(data)}\n"
+            if data and isinstance(data[0], dict):
+                propiedades += f"\nPropiedades del primer elemento:\n"
+                propiedades += '\n'.join([f"  - {k}: {type(v).__name__}" for k, v in list(data[0].items())[:10]])
+            
+            extracto = json.dumps(data[:5], indent=2, ensure_ascii=False)
+            if len(data) > 5:
+                extracto += f"\n... ({len(data) - 5} elementos más)"
+        else:
+            propiedades = f"Tipo: {type(data).__name__}"
+            extracto = str(data)
+        
+        return propiedades, extracto
+    except json.JSONDecodeError:
+        return 'Error: JSON inválido', contenido[:1000]
+
+
+def _procesar_rdf(contenido, tipo_formato):
+    """Procesa un archivo RDF y extrae propiedades y extracto."""
+    import re
+    
+    if tipo_formato == 'RDF-TURTLE':
+        lineas = contenido.split('\n')
+        propiedades_list = [f"Tipo: {tipo_formato}", f"Líneas totales: {len(lineas)}"]
+        
+        # Extraer prefijos
+        prefixes = {}
+        prefix_pattern = r'@prefix\s+(\w+):\s+<([^>]+)>'
+        for match in re.finditer(prefix_pattern, contenido):
+            prefixes[match.group(1)] = match.group(2)
+        
+        if prefixes:
+            propiedades_list.append(f"\nPrefijos ({len(prefixes)}):")
+            for prefix, uri in list(prefixes.items())[:10]:
+                propiedades_list.append(f"  {prefix}: <{uri}>")
+            if len(prefixes) > 10:
+                propiedades_list.append(f"  ... ({len(prefixes) - 10} prefijos más)")
+        
+        # Extraer recursos (sujetos) - mejorado
+        # En Turtle, los sujetos aparecen al inicio de las líneas o después de punto
+        sujetos = set()
+        # Patrón para sujetos al inicio de línea o después de punto
+        sujeto_pattern = r'(?:^|\.\s*)(<[^>]+>|[\w]+:[\w-]+|_:[\w]+)'
+        for match in re.finditer(sujeto_pattern, contenido, re.MULTILINE):
+            sujeto = match.group(1)
+            if not sujeto.startswith('@') and 'base64' not in sujeto.lower():
+                sujetos.add(sujeto)
+        
+        if sujetos:
+            propiedades_list.append(f"\nRecursos únicos encontrados: {len(sujetos)}")
+            for sujeto in list(sujetos)[:10]:
+                propiedades_list.append(f"  - {sujeto}")
+            if len(sujetos) > 10:
+                propiedades_list.append(f"  ... ({len(sujetos) - 10} recursos más)")
+        
+        # Extraer propiedades comunes (predicados)
+        propiedades_comunes = {
+            'dct:title': [],
+            'dct:description': [],
+            'dct:identifier': [],
+            'dct:type': [],
+            'dct:language': [],
+            'dcat:theme': [],
+            'dct:issued': [],
+            'dct:modified': [],
+            'dct:publisher': [],
+            'dct:format': [],
+            'dct:license': [],
+            'dcat:downloadURL': [],
+            'dcat:accessURL': [],
+        }
+        
+        for prop in propiedades_comunes.keys():
+            # Buscar triples con este predicado en Turtle
+            # Formato: predicado "valor" o predicado 'valor'
+            patterns = [
+                rf'{re.escape(prop)}\s+["\']([^"\']+)["\']',  # Literales con comillas
+                rf'{re.escape(prop)}\s+<([^>]+)>',  # URIs
+                rf'{re.escape(prop)}\s+([\w]+:[\w-]+)',  # Prefijos
+            ]
+            matches = []
+            for pattern in patterns:
+                matches.extend(re.findall(pattern, contenido))
+            if matches:
+                propiedades_comunes[prop] = matches[:3]  # Primeros 3 valores
+        
+        propiedades_encontradas = {k: v for k, v in propiedades_comunes.items() if v}
+        if propiedades_encontradas:
+            propiedades_list.append(f"\nPropiedades principales encontradas ({len(propiedades_encontradas)}):")
+            for prop, valores in list(propiedades_encontradas.items())[:15]:
+                valores_str = ', '.join(valores) if len(valores) == 1 else f"{valores[0]} (+{len(valores)-1} más)"
+                propiedades_list.append(f"  {prop}: {valores_str}")
+        
+        # Contar triples aproximados (líneas con predicado)
+        triples_count = len(re.findall(r'\s+\w+:\w+\s+', contenido))
+        if triples_count > 0:
+            propiedades_list.append(f"\nTriples aproximados: {triples_count}")
+        
+        propiedades = '\n'.join(propiedades_list)
+        extracto = contenido[:2000]
+        if len(contenido) > 2000:
+            extracto += '\n... (contenido truncado)'
+    
+    elif tipo_formato == 'RDF-XML':
+        propiedades_list = [f"Tipo: {tipo_formato}"]
+        
+        # Extraer namespaces
+        namespaces = {}
+        ns_pattern = r'xmlns(?::(\w+))?="([^"]+)"'
+        for match in re.finditer(ns_pattern, contenido):
+            prefix = match.group(1) or 'default'
+            uri = match.group(2)
+            namespaces[prefix] = uri
+        
+        if namespaces:
+            propiedades_list.append(f"\nNamespaces ({len(namespaces)}):")
+            for prefix, uri in list(namespaces.items())[:10]:
+                propiedades_list.append(f"  {prefix}: {uri}")
+            if len(namespaces) > 10:
+                propiedades_list.append(f"  ... ({len(namespaces) - 10} namespaces más)")
+        
+        # Extraer elementos principales
+        # Buscar elementos RDF:Description o elementos con rdf:about
+        descriptions = re.findall(r'<rdf:Description[^>]*rdf:about=["\']([^"\']+)["\'][^>]*>', contenido)
+        if descriptions:
+            propiedades_list.append(f"\nRecursos descritos: {len(descriptions)}")
+            for desc in descriptions[:5]:
+                propiedades_list.append(f"  - {desc}")
+            if len(descriptions) > 5:
+                propiedades_list.append(f"  ... ({len(descriptions) - 5} recursos más)")
+        
+        # Extraer propiedades comunes de elementos
+        propiedades_comunes = {
+            'dct:title': [],
+            'dct:description': [],
+            'dct:identifier': [],
+            'dct:type': [],
+            'dct:language': [],
+            'dcat:theme': [],
+            'dct:issued': [],
+            'dct:modified': [],
+            'dct:publisher': [],
+            'dct:format': [],
+            'dct:license': [],
+            'dcat:downloadURL': [],
+            'dcat:accessURL': [],
+        }
+        
+        for prop in propiedades_comunes.keys():
+            # Buscar elementos con este nombre en XML
+            # Puede ser con namespace o sin él
+            patterns = [
+                rf'<{re.escape(prop)}[^>]*>([^<]+)</{re.escape(prop)}>',  # Con namespace completo
+                rf'<{prop.split(":")[-1]}[^>]*>([^<]+)</{prop.split(":")[-1]}>',  # Sin namespace
+                rf'<[^>]*{re.escape(prop)}[^>]*>([^<]+)</[^>]*>',  # Variación
+            ]
+            matches = []
+            for pattern in patterns:
+                matches.extend(re.findall(pattern, contenido))
+            if matches:
+                propiedades_comunes[prop] = [m.strip() for m in matches[:3] if m.strip()]
+        
+        propiedades_encontradas = {k: v for k, v in propiedades_comunes.items() if v}
+        if propiedades_encontradas:
+            propiedades_list.append(f"\nPropiedades principales encontradas ({len(propiedades_encontradas)}):")
+            for prop, valores in list(propiedades_encontradas.items())[:15]:
+                valores_str = ', '.join(valores) if len(valores) == 1 else f"{valores[0]} (+{len(valores)-1} más)"
+                propiedades_list.append(f"  {prop}: {valores_str}")
+        
+        # Contar elementos XML
+        elementos = re.findall(r'<[^/>]+>', contenido)
+        propiedades_list.append(f"\nElementos XML totales: {len(elementos)}")
+        
+        # Buscar tipos de recursos (rdf:type)
+        tipos = re.findall(r'rdf:type\s+rdf:resource=["\']([^"\']+)["\']', contenido)
+        if tipos:
+            tipos_unicos = list(set(tipos))
+            propiedades_list.append(f"\nTipos de recursos encontrados ({len(tipos_unicos)}):")
+            for tipo in tipos_unicos[:10]:
+                propiedades_list.append(f"  - {tipo}")
+            if len(tipos_unicos) > 10:
+                propiedades_list.append(f"  ... ({len(tipos_unicos) - 10} tipos más)")
+        
+        propiedades = '\n'.join(propiedades_list)
+        extracto = contenido[:2000]
+        if len(contenido) > 2000:
+            extracto += '\n... (contenido truncado)'
+    
+    else:
+        propiedades = f"Tipo: {tipo_formato}"
+        extracto = contenido[:2000] if len(contenido) > 2000 else contenido
+    
+    return propiedades, extracto
 
 
 def editar_metadatos(request, pk):
