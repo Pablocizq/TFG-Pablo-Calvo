@@ -18,7 +18,7 @@
 
     <div class="acciones-secundarias">
         <button type="button" id="descargar-turtle" class="descargar-turtle-btn">Descargar Turtle</button>
-        <a href="{% url 'inferir' %}" class="inferir-ia-btn" title="Seleccionar columnas para la inferencia automática">
+        <a href="{% url 'inferir' %}?name={{ name|urlencode }}&formato={{ formato|urlencode }}&metadata_url={{ metadata_url|urlencode }}" class="inferir-ia-btn" title="Seleccionar columnas para la inferencia automática">
             Inferir con IA
         </a>
     </div>

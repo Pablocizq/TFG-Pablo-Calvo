@@ -52,6 +52,7 @@ body {
     background: transparent;
     color: inherit;
 }
+
 .home-btn:hover {
     background: #f3f4f6;
 }
@@ -70,8 +71,9 @@ body {
 .descargar-turtle-btn,
 .inferir-ia-btn {
     border-radius: 8px;
-    padding: 0.65rem 1.2rem;
+    padding: 0.65rem 1rem;
     font-weight: 600;
+    font-size: 1rem;
     cursor: pointer;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
     transition: background 0.2s ease, transform 0.2s ease;
@@ -221,7 +223,8 @@ body {
 /* Notifications: centered tray under header */
 .notificacion {
     position: fixed;
-    top: 81px; /* slightly below header (adjust if header taller) */
+    top: 81px;
+    /* slightly below header (adjust if header taller) */
     left: 50%;
     transform: translateX(-50%);
     z-index: 1200;
@@ -248,7 +251,7 @@ body {
 
 /* Estilos básicos para el icono de inicio */
 .home-btn {
-    text-decoration: none; 
-    font-size: 20px; 
-    margin-right: 12px; 
+    text-decoration: none;
+    font-size: 20px;
+    margin-right: 12px;
 }
