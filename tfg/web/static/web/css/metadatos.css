@@ -56,24 +56,50 @@ body {
     background: #f3f4f6;
 }
 
-.descargar-turtle-btn {
+.acciones-secundarias {
     position: fixed;
     top: 96px;
     right: 2rem;
-    background-color: #6366f1;
-    color: white;
-    border: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    z-index: 1500;
+    align-items: flex-end;
+}
+
+.descargar-turtle-btn,
+.inferir-ia-btn {
     border-radius: 8px;
-    padding: 0.6rem 1.2rem;
+    padding: 0.65rem 1.2rem;
     font-weight: 600;
     cursor: pointer;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
     transition: background 0.2s ease, transform 0.2s ease;
-    z-index: 1500;
+    border: none;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 150px;
+}
+
+.descargar-turtle-btn {
+    background-color: #6366f1;
+    color: white;
 }
 
 .descargar-turtle-btn:hover {
     background-color: #4f46e5;
+    transform: translateY(-1px);
+}
+
+.inferir-ia-btn {
+    background-color: #0ea5e9;
+    color: white;
+}
+
+.inferir-ia-btn:hover {
+    background-color: #0284c7;
     transform: translateY(-1px);
 }
 

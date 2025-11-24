@@ -16,7 +16,12 @@
         <button class="perfil-btn">👤</button>
     </header>
 
-    <button type="button" id="descargar-turtle" class="descargar-turtle-btn">Descargar Turtle</button>
+    <div class="acciones-secundarias">
+        <button type="button" id="descargar-turtle" class="descargar-turtle-btn">Descargar Turtle</button>
+        <a href="{% url 'inferir' %}" class="inferir-ia-btn" title="Seleccionar columnas para la inferencia automática">
+            Inferir con IA
+        </a>
+    </div>
 
     <main class="contenedor">
         <!-- El formulario POST enviará a la vista 'crear_conjunto' para crear el dataset

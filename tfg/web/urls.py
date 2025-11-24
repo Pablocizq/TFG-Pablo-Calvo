@@ -9,4 +9,5 @@ urlpatterns = [
     path('crear-conjunto/', views.crear_conjunto, name='crear_conjunto'),
     path('metadatos/', views.metadatos, name='metadatos'),
     path('metadatos/turtle/', views.generar_turtle, name='generar_turtle'),
+    path('inferir/', views.inferir, name='inferir'),
 ]

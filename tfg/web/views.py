@@ -8,6 +8,39 @@ import json
 import base64
 import re
 
+INFERENCIA_CAMPOS = [
+    {
+        'id': 'titulo',
+        'nombre': 'Título',
+        'descripcion': 'Nombre representativo que resuma el contenido del dataset.',
+    },
+    {
+        'id': 'descripcion',
+        'nombre': 'Descripción',
+        'descripcion': 'Texto breve que explique qué contiene y para qué sirve.',
+    },
+    {
+        'id': 'tema',
+        'nombre': 'Tema',
+        'descripcion': 'Categoría principal o materia a la que pertenecen los datos.',
+    },
+    {
+        'id': 'palabras_clave',
+        'nombre': 'Palabras clave',
+        'descripcion': 'Términos que facilitan la búsqueda y el etiquetado.',
+    },
+    {
+        'id': 'extension_temporal',
+        'nombre': 'Extensión temporal',
+        'descripcion': 'Periodo de tiempo cubierto por la información.',
+    },
+    {
+        'id': 'extension_espacial',
+        'nombre': 'Extensión espacial',
+        'descripcion': 'Área geográfica a la que aplica el dataset.',
+    },
+]
+
 
 def inicio(request):
     # Filtramos por el usuario 1 según lo solicitado
@@ -216,6 +249,15 @@ def metadatos(request):
         'name': name,
         'formato': formato,
         'metadata_url': metadata_url
+    })
+
+
+def inferir(request):
+    """Interfaz para seleccionar columnas y lanzar la inferencia de metadatos."""
+    query_params = request.GET.urlencode()
+    return render(request, 'inferir.html', {
+        'campos_inferencia': INFERENCIA_CAMPOS,
+        'query_params': query_params,
     })
 
 

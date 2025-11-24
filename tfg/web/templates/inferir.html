@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inferir Metadatos</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'web/css/inferir.css' %}?v=20251124">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <a href="{% url 'inicio' %}" class="home-btn" title="Inicio">🏠</a>
+        <h1>Elige cómo inferir tus metadatos</h1>
+        <button class="perfil-btn">👤</button>
+    </header>
+
+    <main class="contenedor">
+        <section class="panel">
+            <p class="intro">
+                Selecciona qué propiedades de tus datos (JSON / RDF / XML) deben servir como referencia
+                para que la IA genere automáticamente el título, la descripción, el tema y el resto de campos.
+                Las columnas se generan a partir de los ficheros que cargaste en «Crear conjunto».
+            </p>
+
+            <div id="alerta" class="alerta" hidden></div>
+
+            <div id="campos-container" class="campos">
+                {% for campo in campos_inferencia %}
+                <div class="campo-inferencia" data-campo="{{ campo.id }}">
+                    <div class="campo-info">
+                        <h3>{{ campo.nombre }}</h3>
+                        <p>{{ campo.descripcion }}</p>
+                    </div>
+                    <div class="opciones" data-options-for="{{ campo.id }}">
+                        <span class="placeholder">Buscando columnas disponibles…</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="acciones">
+                <a class="btn secundario" href="{% url 'metadatos' %}{% if query_params %}?{{ query_params }}{% endif %}">
+                    ⟵ Volver a metadatos
+                </a>
+                <button id="inferir-btn" class="btn primario" type="button">Inferir metadatos</button>
+            </div>
+
+            <div id="resultado-panel" class="resultado-panel" hidden>
+                <h3>Resumen de selección</h3>
+                <pre id="resultado-json"></pre>
+                <p class="nota">
+                    Próximamente esta selección se enviará automáticamente al servicio de IA.
+                </p>
+            </div>
+        </section>
+    </main>
+
+    {% load static %}
+    {{ campos_inferencia|json_script:"campos-data" }}
+    <script>
+    (function(){
+        const campos = JSON.parse(document.getElementById('campos-data').textContent || '[]');
+        const datasetRaw = sessionStorage.getItem('datasetFiles');
+        const alerta = document.getElementById('alerta');
+        const contenedores = document.querySelectorAll('[data-options-for]');
+        const inferirBtn = document.getElementById('inferir-btn');
+        const resultadoPanel = document.getElementById('resultado-panel');
+        const resultadoJson = document.getElementById('resultado-json');
+
+        if (!datasetRaw) {
+            alerta.textContent = 'No encontramos ficheros cargados. Vuelve a «Crear conjunto» y selecciona tus datos antes de inferir.';
+            alerta.hidden = false;
+            contenedores.forEach(c => c.innerHTML = '<span class="placeholder">Sin columnas disponibles</span>');
+            inferirBtn.disabled = true;
+            return;
+        }
+
+        const datasetFiles = JSON.parse(datasetRaw);
+        const columnas = extraerColumnas(datasetFiles);
+
+        if (!columnas.length) {
+            alerta.textContent = 'No pudimos identificar propiedades en los datos cargados. Comprueba que el formato sea JSON, RDF o XML.';
+            alerta.hidden = false;
+            contenedores.forEach(c => c.innerHTML = '<span class="placeholder">Sin columnas detectadas</span>');
+        } else {
+            alerta.hidden = true;
+            contenedores.forEach(container => {
+                const campoId = container.dataset.optionsFor;
+                container.innerHTML = '';
+                columnas.forEach(col => {
+                    const id = `${campoId}-${col.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase()}`;
+                    const label = document.createElement('label');
+                    label.className = 'opcion-columna';
+                    label.innerHTML = `
+                        <input type="checkbox" name="${campoId}[]" value="${col}">
+                        <span>${col}</span>
+                    `;
+                    container.appendChild(label);
+                });
+            });
+        }
+
+        inferirBtn.addEventListener('click', () => {
+            const resultados = {};
+            campos.forEach(campo => {
+                const seleccionadas = Array.from(document.querySelectorAll(`input[name="${campo.id}[]"]:checked`))
+                    .map(el => el.value);
+                resultados[campo.nombre] = seleccionadas;
+            });
+
+            resultadoJson.textContent = JSON.stringify(resultados, null, 2);
+            resultadoPanel.hidden = false;
+            alert('Selección registrada. La integración con el servicio de IA se añadirá próximamente.');
+        });
+
+        function extraerColumnas(files){
+            const set = new Set();
+            files.forEach(file => {
+                const texto = dataUrlToText(file.content || '');
+                if (!texto) return;
+                const tipo = (file.type || '').toLowerCase();
+                const nombre = (file.name || '').toLowerCase();
+                let props = [];
+                if (tipo.includes('json') || nombre.endsWith('.json')) {
+                    props = extraerJson(texto);
+                } else if (tipo.includes('xml') || tipo.includes('rdf') || nombre.endsWith('.xml') || nombre.endsWith('.rdf')) {
+                    props = extraerXml(texto);
+                } else {
+                    props = extraerJson(texto);
+                    if (!props.length) props = extraerXml(texto);
+                }
+                props.forEach(p => set.add(p));
+            });
+            return Array.from(set).slice(0, 60); // limitar para mantener la UI ordenada
+        }
+
+        function dataUrlToText(dataUrl){
+            if (!dataUrl) return '';
+            const base64Index = dataUrl.indexOf('base64,');
+            if (base64Index === -1) return '';
+            const base64 = dataUrl.substring(base64Index + 7);
+            try {
+                const binary = atob(base64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+            } catch (err) {
+                console.warn('No se pudo decodificar el archivo', err);
+                return '';
+            }
+        }
+
+        function extraerJson(texto){
+            try {
+                const data = JSON.parse(texto);
+                const set = new Set();
+                const recorrer = valor => {
+                    if (Array.isArray(valor)) {
+                        valor.forEach(recorrer);
+                    } else if (valor && typeof valor === 'object') {
+                        Object.keys(valor).forEach(key => {
+                            set.add(formatearNombre(key));
+                            recorrer(valor[key]);
+                        });
+                    }
+                };
+                recorrer(data);
+                return Array.from(set);
+            } catch {
+                return [];
+            }
+        }
+
+        function extraerXml(texto){
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(texto, 'application/xml');
+                if (doc.getElementsByTagName('parsererror').length) return [];
+                const nombres = new Set();
+                doc.querySelectorAll('*').forEach(node => {
+                    if (node.children.length === 0) {
+                        nombres.add(formatearNombre(node.nodeName));
+                    }
+                    Array.from(node.attributes || []).forEach(attr => nombres.add(formatearNombre(attr.name)));
+                });
+                return Array.from(nombres);
+            } catch {
+                return [];
+            }
+        }
+
+        function formatearNombre(nombre){
+            if (!nombre) return '';
+            return nombre.replace(/[_-]/g, ' ').trim();
+        }
+    })();
+    </script>
+</body>
+</html>
+
