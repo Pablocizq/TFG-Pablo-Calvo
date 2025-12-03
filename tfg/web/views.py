@@ -271,7 +271,6 @@ def visualizar(request, pk):
     """Muestra la página de visualización para un conjunto concreto."""
     conjunto = get_object_or_404(Dataset, pk=pk)
     
-    # Obtener todos los ficheros del dataset
     with connection.cursor() as cursor:
         cursor.execute(
             """
@@ -284,7 +283,6 @@ def visualizar(request, pk):
         )
         ficheros = cursor.fetchall()
     
-    # Convertir ficheros a lista de diccionarios
     ficheros_list = []
     for f in ficheros:
         ficheros_list.append({
@@ -294,15 +292,13 @@ def visualizar(request, pk):
             'contenido': f[3]
         })
     
-    # Paginación: obtener el índice del fichero a mostrar
     fichero_index = int(request.GET.get('fichero', 0))
     if fichero_index < 0:
         fichero_index = 0
     if fichero_index >= len(ficheros_list):
         fichero_index = max(0, len(ficheros_list) - 1)
     
-    # Procesar el fichero actual
-    propiedades = 'No hay propiedades para mostrar'
+    propiedades_lista = []
     extracto = 'No hay extractos para mostrar'
     fichero_actual = None
     
@@ -311,24 +307,25 @@ def visualizar(request, pk):
         contenido = fichero_actual['contenido']
         tipo_formato = fichero_actual['tipo_formato']
         
-        # Procesar según el tipo de formato
         if contenido:
-            if tipo_formato == 'CSV':
-                propiedades, extracto = _procesar_csv(contenido)
-            elif tipo_formato == 'JSON':
-                propiedades, extracto = _procesar_json(contenido)
-            elif tipo_formato in ['RDF-XML', 'RDF-TURTLE']:
-                propiedades, extracto = _procesar_rdf(contenido, tipo_formato)
+            if _es_base64(contenido):
+                propiedades_lista = ['Archivo binario codificado en base64']
+                extracto = "Este archivo está codificado en base64. No se puede mostrar como texto."
             else:
-                # Archivo binario en base64 o texto plano
-                if _es_base64(contenido):
-                    propiedades = f"Archivo binario: {fichero_actual['nombre_archivo']}"
-                    extracto = "Este archivo está codificado en base64. No se puede mostrar como texto."
+                strategy = _get_extraction_strategy_by_format(tipo_formato)
+                
+                if strategy:
+                    try:
+                        properties = strategy.extract_properties(contenido)
+                        propiedades_lista = [prop.name for prop in properties]
+                    except Exception as e:
+                        print(f"Error extracting properties: {e}")
+                        propiedades_lista = [f'Error al extraer propiedades: {str(e)}']
                 else:
-                    propiedades = f"Archivo de texto: {fichero_actual['nombre_archivo']}"
-                    extracto = contenido[:1000] + ('...' if len(contenido) > 1000 else '')
+                    propiedades_lista = [f'Formato no soportado: {tipo_formato}']
+                
+                extracto = contenido[:2000] + ('...' if len(contenido) > 2000 else '')
     
-    # Calcular índices para paginación
     prev_index = fichero_index - 1 if fichero_index > 0 else None
     next_index = fichero_index + 1 if fichero_index < len(ficheros_list) - 1 else None
     current_num = fichero_index + 1
@@ -342,10 +339,23 @@ def visualizar(request, pk):
         'next_index': next_index,
         'current_num': current_num,
         'total_ficheros': len(ficheros_list),
-        'propiedades': propiedades,
+        'propiedades_lista': propiedades_lista,
         'extracto': extracto,
     }
     return render(request, 'visualizar.html', context)
+
+
+def _get_extraction_strategy_by_format(tipo_formato: str):
+    """Get appropriate extraction strategy based on format type."""
+    if tipo_formato == 'CSV':
+        return CSVExtractionStrategy()
+    elif tipo_formato == 'JSON':
+        return JSONExtractionStrategy()
+    elif tipo_formato == 'RDF-XML':
+        return RDFXMLExtractionStrategy()
+    elif tipo_formato == 'RDF-TURTLE':
+        return RDFTurtleExtractionStrategy()
+    return None
 
 
 def _es_base64(s):

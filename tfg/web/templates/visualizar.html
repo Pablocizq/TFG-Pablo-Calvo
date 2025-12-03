@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visualizar conjunto</title>
     {% load static %}
-    <link rel="stylesheet" href="{% static 'web/css/visualizar.css' %}?v=20251111">
+    <link rel="stylesheet" href="{% static 'web/css/visualizar.css' %}?v=20251203b">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    <!-- Reutilizamos tipografías/espaciados del resto para mantener coherencia -->
 </head>
+
 <body>
     <header class="header">
         <a href="{% url 'inicio' %}" class="home-btn" title="Inicio">🏠</a>
@@ -19,51 +20,56 @@
     <main class="contenedor">
         <section class="panel-visualizacion">
             {% if total_ficheros > 0 %}
-                <div class="bloque">
-                    <h3 class="bloque-titulo">Propiedades:</h3>
-                    <p class="propiedades">
-                        {{ propiedades|linebreaks }}
-                    </p>
-                </div>
+            <div class="bloque">
+                <h3 class="bloque-titulo">Propiedades detectadas ({{ propiedades_lista|length }}):</h3>
 
-                <div class="bloque">
-                    <h3 class="bloque-titulo">Extracto del contenido:</h3>
-                    <div class="extracto" aria-label="Extracto del contenido">
-                        <pre class="extracto-pre">{{ extracto }}</pre>
-                    </div>
+                {% if propiedades_lista %}
+                <div class="propiedades-lista">
+                    {% for propiedad in propiedades_lista %}
+                    <span class="propiedad-item">{{ propiedad }}</span>
+                    {% endfor %}
                 </div>
+                {% else %}
+                <p class="sin-propiedades">No se detectaron propiedades.</p>
+                {% endif %}
+            </div>
 
-                <!-- Paginación al final del panel -->
-                <div class="bloque-paginacion">
-                    <div class="controles-paginacion">
-                        {% if prev_index is not None %}
-                            <a href="?fichero={{ prev_index }}" class="btn-paginacion anterior">← Anterior</a>
-                        {% else %}
-                            <span class="btn-paginacion anterior disabled">← Anterior</span>
-                        {% endif %}
-                        
-                        <span class="contador-paginacion">
-                            Fichero {{ current_num }} de {{ total_ficheros }}
-                            {% if fichero_actual %}
-                                - {{ fichero_actual.nombre_archivo }} ({{ fichero_actual.tipo_formato }})
-                            {% endif %}
-                        </span>
-                        
-                        {% if next_index is not None %}
-                            <a href="?fichero={{ next_index }}" class="btn-paginacion siguiente">Siguiente →</a>
-                        {% else %}
-                            <span class="btn-paginacion siguiente disabled">Siguiente →</span>
-                        {% endif %}
-                    </div>
+            <div class="bloque">
+                <h3 class="bloque-titulo">Extracto del contenido:</h3>
+                <div class="extracto">
+                    <pre class="extracto-pre">{{ extracto }}</pre>
                 </div>
+            </div>
+
+            <div class="bloque-paginacion">
+                <div class="controles-paginacion">
+                    {% if prev_index is not None %}
+                    <a href="?fichero={{ prev_index }}" class="btn-paginacion anterior">← Anterior</a>
+                    {% else %}
+                    <span class="btn-paginacion anterior disabled">← Anterior</span>
+                    {% endif %}
+
+                    <span class="contador-paginacion">
+                        Fichero {{ current_num }} de {{ total_ficheros }}
+                        {% if fichero_actual %}
+                        - {{ fichero_actual.nombre_archivo }} ({{ fichero_actual.tipo_formato }})
+                        {% endif %}
+                    </span>
+
+                    {% if next_index is not None %}
+                    <a href="?fichero={{ next_index }}" class="btn-paginacion siguiente">Siguiente →</a>
+                    {% else %}
+                    <span class="btn-paginacion siguiente disabled">Siguiente →</span>
+                    {% endif %}
+                </div>
+            </div>
             {% else %}
-                <div class="bloque">
-                    <p class="propiedades">Este conjunto no tiene ficheros asociados.</p>
-                </div>
+            <div class="bloque">
+                <p class="sin-propiedades">Este conjunto no tiene ficheros asociados.</p>
+            </div>
             {% endif %}
         </section>
     </main>
 </body>
+
 </html>
-
-
