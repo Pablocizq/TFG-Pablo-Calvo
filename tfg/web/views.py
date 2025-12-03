@@ -1,9 +1,15 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 from django.db import connection, DatabaseError
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils.text import slugify
 from .models import Dataset
+from .parsers.property_extraction_strategy import (
+    CSVExtractionStrategy,
+    JSONExtractionStrategy,
+    RDFXMLExtractionStrategy,
+    RDFTurtleExtractionStrategy
+)
 import json
 import base64
 import re
@@ -826,3 +832,101 @@ def generar_turtle(request):
     response = HttpResponse(turtle_content, content_type="text/turtle; charset=utf-8")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
+
+
+def extract_properties_api(request):
+    """API endpoint to extract properties with type detection from uploaded files."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST requests allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        files = data.get('files', [])
+        
+        if not files:
+            return JsonResponse({'error': 'No files provided'}, status=400)
+        
+        all_properties = {}
+        
+        for file_info in files:
+            content = file_info.get('content', '')
+            file_type = file_info.get('type', '').lower()
+            file_name = file_info.get('name', '').lower()
+            
+            try:
+                content_text = _decode_file_content(content)
+            except Exception as e:
+                continue
+            
+            strategy = _get_extraction_strategy(file_type, file_name)
+            
+            if strategy:
+                properties = strategy.extract_properties(content_text)
+                
+                for prop in properties:
+                    prop_dict = prop.to_dict()
+                    if prop_dict['name'] not in all_properties:
+                        all_properties[prop_dict['name']] = prop_dict
+        
+        grouped = {
+            'text': [],
+            'numeric': [],
+            'date': [],
+            'coordinates': [],
+            'boolean': []
+        }
+        
+        for prop_name, prop_data in all_properties.items():
+            prop_type = prop_data['type']
+            if prop_type in grouped:
+                grouped[prop_type].append(prop_name)
+        
+        auto_assignments = {
+            'titulo': grouped['text'][:3],
+            'descripcion': grouped['text'][:3],
+            'tema': grouped['text'][:3],
+            'palabras_clave': grouped['text'][:5],
+            'extension_temporal': grouped['date'],
+            'extension_espacial': grouped['coordinates']
+        }
+        
+        return JsonResponse({
+            'properties': list(all_properties.values()),
+            'grouped': grouped,
+            'auto_assignments': auto_assignments
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def _decode_file_content(data_url: str) -> str:
+    if not data_url:
+        return ''
+    
+    base64_index = data_url.find('base64,')
+    if base64_index == -1:
+        return ''
+    
+    base64_str = data_url[base64_index + 7:]
+    try:
+        binary = base64.b64decode(base64_str)
+        return binary.decode('utf-8', errors='ignore')
+    except Exception:
+        return ''
+
+
+def _get_extraction_strategy(file_type: str, file_name: str):
+    if 'turtle' in file_type or file_name.endswith('.ttl') or file_name.endswith('.turtle'):
+        return RDFTurtleExtractionStrategy()
+    
+    elif 'json' in file_type or file_name.endswith('.json'):
+        return JSONExtractionStrategy()
+    
+    elif 'xml' in file_type or 'rdf' in file_type or file_name.endswith('.xml') or file_name.endswith('.rdf'):
+        return RDFXMLExtractionStrategy()
+    
+    elif 'csv' in file_type or file_name.endswith('.csv'):
+        return CSVExtractionStrategy()
+    
+    return JSONExtractionStrategy()

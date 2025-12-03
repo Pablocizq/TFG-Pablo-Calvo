@@ -1,0 +1,274 @@
+(function () {
+    const state = {
+        allProperties: [],
+        groupedProperties: {
+            text: [],
+            numeric: [],
+            date: [],
+            coordinates: [],
+            boolean: []
+        },
+        selectedProperties: {
+            titulo: [],
+            descripcion: [],
+            tema: [],
+            palabras_clave: [],
+            extension_temporal: [],
+            extension_espacial: []
+        }
+    };
+
+    const alerta = document.getElementById('alerta');
+    const propertiesContainer = document.getElementById('properties-container');
+    const metadataAssignmentsContainer = document.getElementById('metadata-assignments');
+    const inferirBtn = document.getElementById('inferir-btn');
+    const resultadoPanel = document.getElementById('resultado-panel');
+    const resultadoJson = document.getElementById('resultado-json');
+
+    function getCSRFToken() {
+        const cookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+        return cookie ? cookie.split('=')[1] : '';
+    }
+
+    async function init() {
+        const datasetRaw = sessionStorage.getItem('datasetFiles');
+
+        if (!datasetRaw) {
+            showAlert('No encontramos ficheros cargados. Vuelve a «Crear conjunto» y selecciona tus datos antes de inferir.');
+            disableInterface();
+            return;
+        }
+
+        try {
+            const datasetFiles = JSON.parse(datasetRaw);
+            await extractProperties(datasetFiles);
+        } catch (error) {
+            consoleError('Error parsing dataset files:', error);
+            showAlert('Error al procesar los archivos cargados.');
+            disableInterface();
+        }
+    }
+
+    async function extractProperties(files) {
+        try {
+            const response = await fetch('/api/extract-properties/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify({ files })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            state.allProperties = data.properties;
+            state.groupedProperties = data.grouped;
+
+            if (data.auto_assignments) {
+                state.selectedProperties = data.auto_assignments;
+            }
+
+            renderInterface();
+        } catch (error) {
+            console.error('Error extracting properties:', error);
+            showAlert('No pudimos identificar propiedades en los datos cargados. Comprueba que el formato sea JSON, CSV, RDF-Turtle o RDF-XML.');
+            disableInterface();
+        }
+    }
+
+    function renderInterface() {
+        if (!state.allProperties.length) {
+            showAlert('No se detectaron propiedades en los archivos cargados.');
+            disableInterface();
+            return;
+        }
+
+        hideAlert();
+        renderGroupedProperties();
+        renderMetadataAssignments();
+        inferirBtn.disabled = false;
+    }
+
+    function renderGroupedProperties() {
+        const typeLabels = {
+            text: { label: 'Texto', icon: '📝', color: '#0ea5e9' },
+            numeric: { label: 'Numérico', icon: '🔢', color: '#8b5cf6' },
+            date: { label: 'Fecha', icon: '📅', color: '#10b981' },
+            coordinates: { label: 'Coordenadas', icon: '🗺️', color: '#f59e0b' },
+            boolean: { label: 'Booleano', icon: '✓', color: '#ec4899' }
+        };
+
+        propertiesContainer.innerHTML = '';
+
+        Object.entries(state.groupedProperties).forEach(([type, properties]) => {
+            if (properties.length === 0) return;
+
+            const typeInfo = typeLabels[type];
+            const section = document.createElement('div');
+            section.className = 'property-type-section';
+            section.innerHTML = `
+                <div class="type-header" style="border-left-color: ${typeInfo.color}">
+                    <span class="type-icon">${typeInfo.icon}</span>
+                    <h3>${typeInfo.label}</h3>
+                    <span class="type-count">${properties.length}</span>
+                </div>
+                <div class="chips-container" data-type="${type}">
+                    ${properties.map(prop => `
+                        <div class="chip" data-property="${prop}" data-type="${type}">
+                            <span class="chip-text">${prop}</span>
+                            <span class="chip-add">+</span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+
+            propertiesContainer.appendChild(section);
+        });
+
+        document.querySelectorAll('.chip').forEach(chip => {
+            chip.addEventListener('click', handleChipClick);
+        });
+    }
+
+    function renderMetadataAssignments() {
+        const campos = JSON.parse(document.getElementById('campos-data').textContent || '[]');
+
+        metadataAssignmentsContainer.innerHTML = '';
+
+        campos.forEach(campo => {
+            const assigned = state.selectedProperties[campo.id] || [];
+            const section = document.createElement('div');
+            section.className = 'metadata-assignment';
+            section.innerHTML = `
+                <div class="assignment-header">
+                    <h4>${campo.nombre}</h4>
+                    <p>${campo.descripcion}</p>
+                </div>
+                <div class="assigned-chips" data-field="${campo.id}">
+                    ${assigned.length === 0
+                    ? '<span class="placeholder">Sin propiedades asignadas</span>'
+                    : assigned.map(prop => `
+                            <div class="assigned-chip" data-property="${prop}" data-field="${campo.id}">
+                                <span>${prop}</span>
+                                <button class="remove-btn" title="Quitar">×</button>
+                            </div>
+                        `).join('')
+                }
+                </div>
+            `;
+
+            metadataAssignmentsContainer.appendChild(section);
+        });
+
+        document.querySelectorAll('.remove-btn').forEach(btn => {
+            btn.addEventListener('click', handleRemoveProperty);
+        });
+    }
+
+    function handleChipClick(e) {
+        e.stopPropagation();
+        const chip = e.currentTarget;
+        const propertyName = chip.dataset.property;
+        const propertyType = chip.dataset.type;
+
+        showAssignmentModal(propertyName, propertyType);
+    }
+
+    function showAssignmentModal(propertyName, propertyType) {
+        const campos = JSON.parse(document.getElementById('campos-data').textContent || '[]');
+
+        const modal = document.createElement('div');
+        modal.className = 'assignment-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <h3>Añadir "${propertyName}" a:</h3>
+                <div class="modal-fields">
+                    ${campos.map(campo => `
+                        <button class="modal-field-btn" data-field="${campo.id}">
+                            ${campo.nombre}
+                        </button>
+                    `).join('')}
+                </div>
+                <button class="modal-cancel">Cancelar</button>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.querySelectorAll('.modal-field-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const fieldId = btn.dataset.field;
+                addPropertyToField(propertyName, fieldId);
+                document.body.removeChild(modal);
+            });
+        });
+
+        modal.querySelector('.modal-cancel').addEventListener('click', () => {
+            document.body.removeChild(modal);
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                document.body.removeChild(modal);
+            }
+        });
+    }
+
+    function addPropertyToField(property, fieldId) {
+        if (!state.selectedProperties[fieldId]) {
+            state.selectedProperties[fieldId] = [];
+        }
+
+        if (!state.selectedProperties[fieldId].includes(property)) {
+            state.selectedProperties[fieldId].push(property);
+            renderMetadataAssignments();
+        }
+    }
+
+    function handleRemoveProperty(e) {
+        e.stopPropagation();
+        const chip = e.target.closest('.assigned-chip');
+        const property = chip.dataset.property;
+        const fieldId = chip.dataset.field;
+
+        state.selectedProperties[fieldId] = state.selectedProperties[fieldId].filter(p => p !== property);
+        renderMetadataAssignments();
+    }
+
+    inferirBtn.addEventListener('click', () => {
+        const result = {};
+        Object.entries(state.selectedProperties).forEach(([field, properties]) => {
+            if (properties.length > 0) {
+                result[field] = properties;
+            }
+        });
+
+        resultadoJson.textContent = JSON.stringify(result, null, 2);
+        resultadoPanel.hidden = false;
+
+        sessionStorage.setItem('metadataInferenceSelection', JSON.stringify(result));
+
+        resultadoPanel.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    function showAlert(message) {
+        alerta.textContent = message;
+        alerta.hidden = false;
+    }
+
+    function hideAlert() {
+        alerta.hidden = true;
+    }
+
+    function disableInterface() {
+        inferirBtn.disabled = true;
+        propertiesContainer.innerHTML = '<p class="placeholder">No hay propiedades disponibles</p>';
+    }
+
+    init();
+})();

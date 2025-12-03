@@ -10,4 +10,5 @@ urlpatterns = [
     path('metadatos/', views.metadatos, name='metadatos'),
     path('metadatos/turtle/', views.generar_turtle, name='generar_turtle'),
     path('inferir/', views.inferir, name='inferir'),
+    path('api/extract-properties/', views.extract_properties_api, name='extract_properties_api'),
 ]
