@@ -35,6 +35,25 @@ class PropertyExtractionStrategy(ABC):
         if value is None or value == '':
             return PropertyInfo.DATA_TYPE_TEXT
         
+        # Check Python native types first (for JSON parsed values)
+        if isinstance(value, bool):
+            return PropertyInfo.DATA_TYPE_BOOLEAN
+        
+        if isinstance(value, (int, float)):
+            return PropertyInfo.DATA_TYPE_NUMERIC
+        
+        # For lists and dicts, detect based on structure
+        if isinstance(value, list):
+            if value and isinstance(value[0], (int, float)):
+                return PropertyInfo.DATA_TYPE_NUMERIC
+            elif value and len(value) == 2 and all(isinstance(v, (int, float)) for v in value):
+                return PropertyInfo.DATA_TYPE_COORDINATES
+            return PropertyInfo.DATA_TYPE_TEXT
+        
+        if isinstance(value, dict):
+            return PropertyInfo.DATA_TYPE_TEXT
+        
+        # Convert to string for pattern matching
         value_str = str(value).strip()
         
         if self._is_boolean(value_str):
@@ -112,7 +131,17 @@ class CSVExtractionStrategy(PropertyExtractionStrategy):
             if len(lines) < 2:
                 return []
             
-            csv_reader = csv.reader(StringIO(content))
+            # Auto-detect delimiter using csv.Sniffer
+            sample = '\n'.join(lines[:5])  # Use first 5 lines for detection
+            try:
+                sniffer = csv.Sniffer()
+                dialect = sniffer.sniff(sample, delimiters=',;\t|')
+                delimiter = dialect.delimiter
+            except csv.Error:
+                # Fallback: try common delimiters manually
+                delimiter = self._detect_delimiter_manually(lines[0])
+            
+            csv_reader = csv.reader(StringIO(content), delimiter=delimiter)
             headers = next(csv_reader)
             
             try:
@@ -134,6 +163,19 @@ class CSVExtractionStrategy(PropertyExtractionStrategy):
         except Exception as e:
             print(f"Error extracting CSV properties: {e}")
             return []
+    
+    def _detect_delimiter_manually(self, first_line: str) -> str:
+        """Manually detect delimiter by counting occurrences of common separators."""
+        delimiters = [',', ';', '\t', '|', ':']
+        delimiter_counts = {d: first_line.count(d) for d in delimiters}
+        
+        # Return delimiter with highest count (if > 0)
+        max_delimiter = max(delimiter_counts, key=delimiter_counts.get)
+        if delimiter_counts[max_delimiter] > 0:
+            return max_delimiter
+        
+        # Default to comma
+        return ','
 
 
 class JSONExtractionStrategy(PropertyExtractionStrategy):
@@ -148,17 +190,37 @@ class JSONExtractionStrategy(PropertyExtractionStrategy):
                 data = data[0]
             
             if isinstance(data, dict):
-                properties = []
-                for key, value in data.items():
-                    data_type = self._detect_type(value)
-                    formatted_name = self._format_property_name(key)
-                    properties.append(PropertyInfo(formatted_name, data_type))
-                return properties
+                properties_dict = {}
+                self._extract_recursive(data, properties_dict, current_depth=0, max_depth=2)
+                return list(properties_dict.values())
             
             return []
         except Exception as e:
             print(f"Error extracting JSON properties: {e}")
             return []
+    
+    def _extract_recursive(self, obj: Any, properties_dict: Dict[str, PropertyInfo], current_depth: int, max_depth: int):
+        if current_depth > max_depth:
+            return
+        
+        if isinstance(obj, dict):
+            for key, value in obj.items():
+                formatted_name = self._format_property_name(key)
+                
+                if formatted_name and formatted_name not in properties_dict:
+                    data_type = self._detect_type(value)
+                    properties_dict[formatted_name] = PropertyInfo(formatted_name, data_type)
+                
+                if current_depth < max_depth:
+                    if isinstance(value, dict):
+                        self._extract_recursive(value, properties_dict, current_depth + 1, max_depth)
+                    elif isinstance(value, list) and value:
+                        if isinstance(value[0], dict):
+                            self._extract_recursive(value[0], properties_dict, current_depth + 1, max_depth)
+        
+        elif isinstance(obj, list) and obj:
+            if isinstance(obj[0], dict):
+                self._extract_recursive(obj[0], properties_dict, current_depth, max_depth)
     
     def _format_property_name(self, name: str) -> str:
         if not name:
