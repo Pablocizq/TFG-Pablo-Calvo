@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
     <link rel="stylesheet" href="{% static 'web/css/metadatos.css' %}?v=20251110">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <header class="header">
         <!-- Botón/ícono HOME a la izquierda que redirige a la vista 'inicio' -->
@@ -18,7 +20,8 @@
 
     <div class="acciones-secundarias">
         <button type="button" id="descargar-turtle" class="descargar-turtle-btn">Descargar Turtle</button>
-        <a href="{% url 'inferir' %}?name={{ name|urlencode }}&formato={{ formato|urlencode }}&metadata_url={{ metadata_url|urlencode }}" class="inferir-ia-btn" title="Seleccionar columnas para la inferencia automática">
+        <a href="{% url 'inferir' %}?name={{ name|urlencode }}&formato={{ formato|urlencode }}&metadata_url={{ metadata_url|urlencode }}"
+            class="inferir-ia-btn" title="Seleccionar columnas para la inferencia automática">
             Inferir con IA
         </a>
     </div>
@@ -42,7 +45,7 @@
             {% if error %}
             <div class="notificacion notificacion-error">{{ error }}</div>
             {% endif %}
-            
+
             <!-- ICONO DESCARGA
             <div class="acciones-superiores">
                 <button type="button" class="btn-icono descargar" title="Descargar metadatos">⬇️</button>
@@ -127,7 +130,8 @@
 
                 <div class="campo campo-largo">
                     <label>Descripción de la distribución:</label>
-                    <textarea name="descripcion_distribucion" rows="2" placeholder="Detalles sobre la distribución de los datos"></textarea>
+                    <textarea name="descripcion_distribucion" rows="2"
+                        placeholder="Detalles sobre la distribución de los datos"></textarea>
                 </div>
             </div>
 
@@ -141,18 +145,35 @@
     </main>
     <script>
         // Oculta notificaciones automáticamente tras 4s
-        (function(){
+        (function () {
             const nots = document.querySelectorAll('.notificacion');
-            if(!nots) return;
-            setTimeout(()=> nots.forEach(n=> n.style.display='none'), 10000);
+            if (!nots) return;
+            setTimeout(() => nots.forEach(n => n.style.display = 'none'), 10000);
         })();
 
         // Recupera el contenido del fichero de metadatos guardado en sessionStorage
-        (function(){
+        (function () {
             const field = document.getElementById('metadata-content-field');
             const stored = sessionStorage.getItem('metadataFileContent');
             if (field && stored !== null) {
                 field.value = stored;
+            }
+
+            // Prefill título generado por IA
+            const aiGeneratedTitle = sessionStorage.getItem('aiGeneratedTitle');
+            if (aiGeneratedTitle) {
+                const tituloInput = document.querySelector('input[name="titulo"]');
+                if (tituloInput && (!tituloInput.value || !tituloInput.value.trim())) {
+                    tituloInput.value = aiGeneratedTitle;
+
+                    // Highlight the field briefly to show it was auto-filled
+                    tituloInput.style.background = '#e0f2fe';
+                    setTimeout(() => {
+                        tituloInput.style.background = '';
+                    }, 2000);
+                }
+                // Clear it from session storage after use
+                sessionStorage.removeItem('aiGeneratedTitle');
             }
 
             const form = document.querySelector('.formulario');
@@ -317,11 +338,11 @@
                     const result = [];
                     let current = '';
                     let inQuotes = false;
-                    
+
                     for (let i = 0; i < line.length; i++) {
                         const char = line[i];
                         const nextChar = line[i + 1];
-                        
+
                         if (char === '"') {
                             if (inQuotes && nextChar === '"') {
                                 current += '"';
@@ -343,12 +364,12 @@
                 const attemptCsv = () => {
                     const lines = stored.split(/\r?\n/).filter(line => line.trim().length > 0);
                     if (lines.length < 2) return false;
-                    
+
                     const delimiter = (lines[0].match(/;/g) || []).length > (lines[0].match(/,/g) || []).length ? ';' : ',';
-                    
+
                     const headers = parseCsvLine(lines[0]).map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
                     const values = parseCsvLine(lines[1]).map(v => v.replace(/^"|"$/g, '').trim());
-                    
+
                     if (!headers.length || headers.length !== values.length) return false;
 
                     const csvMap = {
@@ -421,7 +442,7 @@
             tryPrefill();
 
             if (form) {
-                form.addEventListener('submit', function(e){
+                form.addEventListener('submit', function (e) {
                     // Recuperar archivos guardados en sessionStorage
                     const storedFiles = sessionStorage.getItem('datasetFiles');
                     if (storedFiles) {
@@ -445,12 +466,12 @@
         })();
 
         // Generación y descarga del archivo Turtle con los metadatos actuales
-        (function(){
+        (function () {
             const form = document.querySelector('.formulario');
             const downloadBtn = document.getElementById('descargar-turtle');
             if (!form || !downloadBtn) return;
 
-            downloadBtn.addEventListener('click', async function(){
+            downloadBtn.addEventListener('click', async function () {
                 const formData = new FormData(form);
                 const metadataField = document.getElementById('metadata-content-field');
                 if (metadataField) {
@@ -485,4 +506,5 @@
         })();
     </script>
 </body>
+
 </html>

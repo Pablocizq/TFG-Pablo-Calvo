@@ -13,6 +13,8 @@ from .parsers.property_extraction_strategy import (
 import json
 import base64
 import re
+import os
+from google import genai
 
 INFERENCIA_CAMPOS = [
     {
@@ -940,3 +942,53 @@ def _get_extraction_strategy(file_type: str, file_name: str):
         return CSVExtractionStrategy()
     
     return JSONExtractionStrategy()
+
+
+def generate_title_with_ai(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST requests allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        files = data.get('files', [])
+        
+        if not files:
+            return JsonResponse({'error': 'No se proporcionaron archivos'}, status=400)
+        
+        file_content = _decode_file_content(files[0].get('content', ''))
+        if not file_content:
+            return JsonResponse({'error': 'No se pudo decodificar el contenido del archivo'}, status=400)
+        
+        # Prompt para generar título descriptivo
+        prompt = f'''Analiza el siguiente contenido de datos y genera un título descriptivo y conciso (máximo 20 palabras) que resuma de qué trata este conjunto de datos.
+
+Responde SOLO con el título, sin explicaciones adicionales, sin comillas, sin puntos finales.
+
+Contenido del archivo:
+{file_content[:5000]}'''
+        
+        api_key = os.getenv('API_KEY')
+        if not api_key:
+            return JsonResponse({'error': 'API_KEY no configurada en variables de entorno'}, status=500)
+        
+        try:
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt
+            )
+            
+            generated_title = response.text.strip()
+            generated_title = generated_title.strip('"\'')
+            
+            return JsonResponse({
+                'title': generated_title,
+                'success': True
+            })
+        except Exception as ge:
+            return JsonResponse({'error': f'Error al llamar a Gemini: {str(ge)}'}, status=500)
+        
+    except json.JSONDecodeError as je:
+        return JsonResponse({'error': f'Error al parsear datos JSON: {str(je)}'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': f'Error inesperado: {str(e)}'}, status=500)

@@ -240,7 +240,11 @@
         renderMetadataAssignments();
     }
 
-    inferirBtn.addEventListener('click', () => {
+    inferirBtn.addEventListener('click', async () => {
+        // Deshabilitar botón inmediatamente
+        inferirBtn.disabled = true;
+        inferirBtn.textContent = 'Generando título con IA...';
+
         const result = {};
         Object.entries(state.selectedProperties).forEach(([field, properties]) => {
             if (properties.length > 0) {
@@ -248,12 +252,67 @@
             }
         });
 
-        resultadoJson.textContent = JSON.stringify(result, null, 2);
-        resultadoPanel.hidden = false;
-
         sessionStorage.setItem('metadataInferenceSelection', JSON.stringify(result));
 
-        resultadoPanel.scrollIntoView({ behavior: 'smooth' });
+        // Obtener parámetros de URL para redirigir correctamente
+        const urlParams = new URLSearchParams(window.location.search);
+        const name = urlParams.get('name') || '';
+        const formato = urlParams.get('formato') || '';
+        const metadataUrl = urlParams.get('metadata_url') || '';
+
+        // Construir URL de metadatos
+        const metadatosUrl = `/metadatos/?name=${encodeURIComponent(name)}&formato=${encodeURIComponent(formato)}&metadata_url=${encodeURIComponent(metadataUrl)}`;
+
+        // Generar título con IA
+        try {
+            const datasetFiles = JSON.parse(sessionStorage.getItem('datasetFiles'));
+
+            if (!datasetFiles || datasetFiles.length === 0) {
+                throw new Error('No se encontraron archivos en sessionStorage');
+            }
+
+            const response = await fetch('/api/generate-title/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify({
+                    files: datasetFiles,
+                    selectedProperties: result
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success && data.title) {
+                sessionStorage.setItem('aiGeneratedTitle', data.title);
+                resultadoJson.textContent = `✅ Título generado por IA:\n"${data.title}"\n\nPropiedades seleccionadas:\n${JSON.stringify(result, null, 2)}`;
+                resultadoPanel.hidden = false;
+
+                setTimeout(() => {
+                    window.location.href = metadatosUrl;
+                }, 2000);
+            } else {
+                throw new Error('No se pudo generar el título: respuesta inesperada de la IA');
+            }
+        } catch (error) {
+            console.error('Error generando título:', error);
+            resultadoJson.textContent = `⚠️ Error al generar título con IA: ${error.message}\n\nContinuando sin título automático...\n\nPropiedades seleccionadas:\n${JSON.stringify(result, null, 2)}`;
+            resultadoPanel.hidden = false;
+
+            inferirBtn.disabled = false;
+            inferirBtn.textContent = 'Confirmar selección';
+
+            setTimeout(() => {
+                window.location.href = metadatosUrl;
+            }, 3000);
+        }
     });
 
     function showAlert(message) {
