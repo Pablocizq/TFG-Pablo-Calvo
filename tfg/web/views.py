@@ -108,6 +108,7 @@ def crear_conjunto(request):
                 dcat_type = nz(request.POST.get('dcat_type'))
                 idioma = nz(request.POST.get('idioma'))
                 tema = nz(request.POST.get('tema'))
+                palabras_clave = nz(request.POST.get('palabras_clave'))
                 extension_temporal = nz(request.POST.get('extension_temporal'))
                 extension_espacial = nz(request.POST.get('extension_espacial'))
                 url_descarga = nz(request.POST.get('url_descarga'))
@@ -126,15 +127,15 @@ def crear_conjunto(request):
                     """
                     INSERT INTO dataset (
                         id_usuario, nombre, identificador, titulo, descripcion, dcat_type, idioma, tema,
-                        extension_temporal, extension_espacial, url_descarga, issued, modificado,
+                        palabras_clave, extension_temporal, extension_espacial, url_descarga, issued, modificado,
                         publisher_name, url_acceso, formato, licencia, derechos, descripcion_distribucion, url_metadatos, contenido_metadatos
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     RETURNING id_dataset, fecha_creacion;
                     """,
                     [
                         1, name, identificador, titulo, descripcion, dcat_type, idioma, tema,
-                        extension_temporal, extension_espacial, url_descarga, issued, modificado,
+                        palabras_clave, extension_temporal, extension_espacial, url_descarga, issued, modificado,
                         publisher_name, url_acceso, formato, licencia, derechos, descripcion_distribucion, url_metadatos, contenido_metadatos
                     ]
                 )
@@ -628,6 +629,7 @@ def editar_metadatos(request, pk):
                 dcat_type = nz(request.POST.get('dcat_type'))
                 idioma = nz(request.POST.get('idioma'))
                 tema = nz(request.POST.get('tema'))
+                palabras_clave = nz(request.POST.get('palabras_clave'))
                 extension_temporal = nz(request.POST.get('extension_temporal'))
                 extension_espacial = nz(request.POST.get('extension_espacial'))
                 url_descarga = nz(request.POST.get('url_descarga'))
@@ -646,7 +648,7 @@ def editar_metadatos(request, pk):
                     """
                     UPDATE dataset SET
                         identificador = %s, titulo = %s, descripcion = %s, dcat_type = %s, idioma = %s,
-                        tema = %s, extension_temporal = %s, extension_espacial = %s, url_descarga = %s,
+                        tema = %s, palabras_clave = %s, extension_temporal = %s, extension_espacial = %s, url_descarga = %s,
                         issued = %s, modificado = %s, publisher_name = %s, url_acceso = %s,
                         formato = %s, licencia = %s, derechos = %s, descripcion_distribucion = %s,
                         url_metadatos = %s, contenido_metadatos = %s
@@ -654,7 +656,7 @@ def editar_metadatos(request, pk):
                     """,
                     [
                         identificador, titulo, descripcion, dcat_type, idioma,
-                        tema, extension_temporal, extension_espacial, url_descarga,
+                        tema, palabras_clave, extension_temporal, extension_espacial, url_descarga,
                         issued, modificado, publisher_name, url_acceso,
                         formato, licencia, derechos, descripcion_distribucion,
                         url_metadatos, contenido_metadatos, pk
@@ -686,7 +688,7 @@ def _get_dataset_data(pk):
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT identificador, titulo, descripcion, dcat_type, idioma, tema,
+            SELECT identificador, titulo, descripcion, dcat_type, idioma, tema, palabras_clave,
                    extension_temporal, extension_espacial, url_descarga, issued, modificado,
                    publisher_name, url_acceso, formato, licencia, derechos,
                    descripcion_distribucion, url_metadatos, contenido_metadatos
@@ -704,19 +706,20 @@ def _get_dataset_data(pk):
                 'dcat_type': row[3] or '',
                 'idioma': row[4] or '',
                 'tema': row[5] or '',
-                'extension_temporal': row[6] or '',
-                'extension_espacial': row[7] or '',
-                'url_descarga': row[8] or '',
-                'issued': row[9].strftime('%Y-%m-%d') if row[9] else '',
-                'modificado': row[10].strftime('%Y-%m-%d') if row[10] else '',
-                'publisher_name': row[11] or '',
-                'url_acceso': row[12] or '',
-                'formato': row[13] or '',
-                'licencia': row[14] or '',
-                'derechos': row[15] or '',
-                'descripcion_distribucion': row[16] or '',
-                'url_metadatos': row[17] or '',
-                'contenido_metadatos': row[18] or '',
+                'palabras_clave': row[6] or '',
+                'extension_temporal': row[7] or '',
+                'extension_espacial': row[8] or '',
+                'url_descarga': row[9] or '',
+                'issued': row[10].strftime('%Y-%m-%d') if row[10] else '',
+                'modificado': row[11].strftime('%Y-%m-%d') if row[11] else '',
+                'publisher_name': row[12] or '',
+                'url_acceso': row[13] or '',
+                'formato': row[14] or '',
+                'licencia': row[15] or '',
+                'derechos': row[16] or '',
+                'descripcion_distribucion': row[17] or '',
+                'url_metadatos': row[18] or '',
+                'contenido_metadatos': row[19] or '',
             }
     return {}
 

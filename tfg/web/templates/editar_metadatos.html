@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
     <link rel="stylesheet" href="{% static 'web/css/metadatos.css' %}?v=20251110">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <header class="header">
         <a href="{% url 'inicio' %}" class="home-btn" title="Inicio">🏠</a>
@@ -16,11 +18,12 @@
     </header>
 
     <button type="button" id="descargar-turtle" class="descargar-turtle-btn">Descargar Turtle</button>
-    
+
     <main class="contenedor">
         <form class="formulario" method="post" action="{% url 'editar_metadatos' dataset.id_dataset %}">
             {% csrf_token %}
-            <input type="hidden" name="metadata_content" id="metadata-content-field" value="{{ contenido_metadatos|default:'' }}">
+            <input type="hidden" name="metadata_content" id="metadata-content-field"
+                value="{{ contenido_metadatos|default:'' }}">
 
             {% if success %}
             <div class="notificacion notificacion-exito">{{ success }}</div>
@@ -32,7 +35,8 @@
             <div class="grid-campos">
                 <div class="campo">
                     <label>Identificador:</label>
-                    <input type="text" name="identificador" value="{{ identificador|default:'' }}" placeholder="Ej. dataset_001">
+                    <input type="text" name="identificador" value="{{ identificador|default:'' }}"
+                        placeholder="Ej. dataset_001">
                 </div>
 
                 <div class="campo">
@@ -42,12 +46,14 @@
 
                 <div class="campo campo-largo">
                     <label>Descripción:</label>
-                    <textarea name="descripcion" rows="3" placeholder="Descripción del conjunto de datos">{{ descripcion|default:'' }}</textarea>
+                    <textarea name="descripcion" rows="3"
+                        placeholder="Descripción del conjunto de datos">{{ descripcion|default:'' }}</textarea>
                 </div>
 
                 <div class="campo">
                     <label>Tipo:</label>
-                    <input type="text" name="dcat_type" value="{{ dcat_type|default:'' }}" placeholder="Tipo de conjunto (dataset, service...)">
+                    <input type="text" name="dcat_type" value="{{ dcat_type|default:'' }}"
+                        placeholder="Tipo de conjunto (dataset, service...)">
                 </div>
 
                 <div class="campo">
@@ -57,22 +63,32 @@
 
                 <div class="campo">
                     <label>Tema:</label>
-                    <input type="text" name="tema" value="{{ tema|default:'' }}" placeholder="Ej. Medio ambiente, educación...">
+                    <input type="text" name="tema" value="{{ tema|default:'' }}"
+                        placeholder="Ej. Medio ambiente, educación...">
+                </div>
+
+                <div class="campo">
+                    <label>Palabras clave:</label>
+                    <input type="text" name="palabras_clave" value="{{ palabras_clave|default:'' }}"
+                        placeholder="Ej. datos abiertos, sostenibilidad, energía renovable">
                 </div>
 
                 <div class="campo">
                     <label>Extensión temporal:</label>
-                    <input type="text" name="extension_temporal" value="{{ extension_temporal|default:'' }}" placeholder="Ej. 2020 - 2025">
+                    <input type="text" name="extension_temporal" value="{{ extension_temporal|default:'' }}"
+                        placeholder="Ej. 2020 - 2025">
                 </div>
 
                 <div class="campo">
                     <label>Extensión espacial:</label>
-                    <input type="text" name="extension_espacial" value="{{ extension_espacial|default:'' }}" placeholder="Ej. España, Europa...">
+                    <input type="text" name="extension_espacial" value="{{ extension_espacial|default:'' }}"
+                        placeholder="Ej. España, Europa...">
                 </div>
 
                 <div class="campo">
                     <label>URL de descarga:</label>
-                    <input type="url" name="url_descarga" value="{{ url_descarga|default:'' }}" placeholder="https://...">
+                    <input type="url" name="url_descarga" value="{{ url_descarga|default:'' }}"
+                        placeholder="https://...">
                 </div>
 
                 <div class="campo">
@@ -87,7 +103,8 @@
 
                 <div class="campo">
                     <label>Publicador:</label>
-                    <input type="text" name="publisher_name" value="{{ publisher_name|default:'' }}" placeholder="Nombre del publicador">
+                    <input type="text" name="publisher_name" value="{{ publisher_name|default:'' }}"
+                        placeholder="Nombre del publicador">
                 </div>
 
                 <div class="campo">
@@ -97,27 +114,32 @@
 
                 <div class="campo">
                     <label>Formato:</label>
-                    <input type="text" name="formato" value="{{ formato|default:'' }}" placeholder="Ej. CSV, JSON, RDF...">
+                    <input type="text" name="formato" value="{{ formato|default:'' }}"
+                        placeholder="Ej. CSV, JSON, RDF...">
                 </div>
 
                 <div class="campo">
                     <label>Licencia:</label>
-                    <input type="text" name="licencia" value="{{ licencia|default:'' }}" placeholder="Tipo de licencia (CC-BY, etc.)">
+                    <input type="text" name="licencia" value="{{ licencia|default:'' }}"
+                        placeholder="Tipo de licencia (CC-BY, etc.)">
                 </div>
 
                 <div class="campo">
                     <label>Derechos:</label>
-                    <input type="text" name="derechos" value="{{ derechos|default:'' }}" placeholder="Descripción de derechos o uso">
+                    <input type="text" name="derechos" value="{{ derechos|default:'' }}"
+                        placeholder="Descripción de derechos o uso">
                 </div>
 
                 <div class="campo campo-largo">
                     <label>Descripción de la distribución:</label>
-                    <textarea name="descripcion_distribucion" rows="2" placeholder="Detalles sobre la distribución de los datos">{{ descripcion_distribucion|default:'' }}</textarea>
+                    <textarea name="descripcion_distribucion" rows="2"
+                        placeholder="Detalles sobre la distribución de los datos">{{ descripcion_distribucion|default:'' }}</textarea>
                 </div>
 
                 <div class="campo">
                     <label>URL de metadatos:</label>
-                    <input type="url" name="url_metadatos" value="{{ url_metadatos|default:'' }}" placeholder="https://...">
+                    <input type="url" name="url_metadatos" value="{{ url_metadatos|default:'' }}"
+                        placeholder="https://...">
                 </div>
             </div>
 
@@ -129,19 +151,19 @@
     </main>
     <script>
         // Oculta notificaciones automáticamente tras 10s
-        (function(){
+        (function () {
             const nots = document.querySelectorAll('.notificacion');
-            if(!nots) return;
-            setTimeout(()=> nots.forEach(n=> n.style.display='none'), 10000);
+            if (!nots) return;
+            setTimeout(() => nots.forEach(n => n.style.display = 'none'), 10000);
         })();
 
         // Genera y descarga el archivo Turtle con los metadatos actuales
-        (function(){
+        (function () {
             const form = document.querySelector('.formulario');
             const downloadBtn = document.getElementById('descargar-turtle');
             if (!form || !downloadBtn) return;
 
-            downloadBtn.addEventListener('click', async function(){
+            downloadBtn.addEventListener('click', async function () {
                 const formData = new FormData(form);
                 const metadataField = document.getElementById('metadata-content-field');
                 if (metadataField) {
@@ -176,5 +198,5 @@
         })();
     </script>
 </body>
-</html>
 
+</html>
