@@ -15,7 +15,8 @@
             palabras_clave: [],
             extension_temporal: [],
             extension_espacial: []
-        }
+        },
+        customPrompt: null
     };
 
     const alerta = document.getElementById('alerta');
@@ -160,6 +161,11 @@
                         `).join('')
                 }
                 </div>
+                ${campo.id === 'titulo' && assigned.length > 0 ? `
+                    <button class="edit-prompt-btn" data-field="${campo.id}">
+                        ✏️ Editar prompt de IA
+                    </button>
+                ` : ''}
             `;
 
             metadataAssignmentsContainer.appendChild(section);
@@ -167,6 +173,10 @@
 
         document.querySelectorAll('.remove-btn').forEach(btn => {
             btn.addEventListener('click', handleRemoveProperty);
+        });
+
+        document.querySelectorAll('.edit-prompt-btn').forEach(btn => {
+            btn.addEventListener('click', () => showPromptEditorModal());
         });
     }
 
@@ -240,6 +250,61 @@
         renderMetadataAssignments();
     }
 
+    function getDefaultPrompt() {
+        return `Analiza el siguiente contenido de datos y genera un título descriptivo y conciso (máximo 20 palabras) que resuma de qué trata este conjunto de datos.
+
+Responde SOLO con el título, sin explicaciones adicionales, sin comillas, sin puntos finales.
+
+Contenido del archivo:
+{file_content}`;
+    }
+
+    function showPromptEditorModal() {
+        const currentPrompt = state.customPrompt || getDefaultPrompt();
+
+        const modal = document.createElement('div');
+        modal.className = 'prompt-editor-modal';
+        modal.innerHTML = `
+            <div class="modal-content prompt-modal-content">
+                <h3>✏️ Editar Prompt de IA</h3>
+                <p class="prompt-description">Personaliza el prompt que se enviará a la IA. Usa <code>{file_content}</code> donde quieras que se inserte el contenido del archivo.</p>
+                <textarea class="prompt-textarea" rows="10">${currentPrompt}</textarea>
+                <div class="prompt-modal-actions">
+                    <button class="btn secundario prompt-cancel">Cancelar</button>
+                    <button class="btn primario prompt-save">💾 Guardar prompt</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const textarea = modal.querySelector('.prompt-textarea');
+        const saveBtn = modal.querySelector('.prompt-save');
+        const cancelBtn = modal.querySelector('.prompt-cancel');
+
+        saveBtn.addEventListener('click', () => {
+            const newPrompt = textarea.value.trim();
+            if (newPrompt) {
+                state.customPrompt = newPrompt;
+                console.log('Prompt personalizado guardado:', newPrompt);
+            }
+            document.body.removeChild(modal);
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            document.body.removeChild(modal);
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                document.body.removeChild(modal);
+            }
+        });
+
+        // Focus en el textarea
+        setTimeout(() => textarea.focus(), 100);
+    }
+
     inferirBtn.addEventListener('click', async () => {
         // Deshabilitar botón inmediatamente
         inferirBtn.disabled = true;
@@ -271,16 +336,23 @@
                 throw new Error('No se encontraron archivos en sessionStorage');
             }
 
+            const requestBody = {
+                files: datasetFiles,
+                selectedProperties: result
+            };
+
+            // Si hay un prompt personalizado, incluirlo en el request
+            if (state.customPrompt) {
+                requestBody.custom_prompt = state.customPrompt;
+            }
+
             const response = await fetch('/api/generate-title/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': getCSRFToken()
                 },
-                body: JSON.stringify({
-                    files: datasetFiles,
-                    selectedProperties: result
-                })
+                body: JSON.stringify(requestBody)
             });
 
             if (!response.ok) {

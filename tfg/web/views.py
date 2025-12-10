@@ -951,6 +951,7 @@ def generate_title_with_ai(request):
     try:
         data = json.loads(request.body)
         files = data.get('files', [])
+        custom_prompt = data.get('custom_prompt', None)
         
         if not files:
             return JsonResponse({'error': 'No se proporcionaron archivos'}, status=400)
@@ -959,13 +960,20 @@ def generate_title_with_ai(request):
         if not file_content:
             return JsonResponse({'error': 'No se pudo decodificar el contenido del archivo'}, status=400)
         
-        # Prompt para generar título descriptivo
-        prompt = f'''Analiza el siguiente contenido de datos y genera un título descriptivo y conciso (máximo 20 palabras) que resuma de qué trata este conjunto de datos.
+        # Limitar contenido a primeros 1500 caracteres (reducido para evitar exceder límites de API)
+        file_content_truncated = file_content[:5000]
+        
+        # Si hay un prompt personalizado, usarlo y reemplazar {file_content}
+        if custom_prompt and custom_prompt.strip():
+            prompt = custom_prompt.replace('{file_content}', file_content_truncated)
+        else:
+            # Prompt por defecto
+            prompt = f'''Analiza el siguiente contenido de datos y genera un título descriptivo y conciso (máximo 20 palabras) que resuma de qué trata este conjunto de datos.
 
 Responde SOLO con el título, sin explicaciones adicionales, sin comillas, sin puntos finales.
 
 Contenido del archivo:
-{file_content[:5000]}'''
+{file_content_truncated}'''
         
         api_key = os.getenv('API_KEY')
         if not api_key:
@@ -974,7 +982,7 @@ Contenido del archivo:
         try:
             client = genai.Client(api_key=api_key)
             response = client.models.generate_content(
-                model='gemini-2.0-flash',
+                model='gemini-2.5-flash',
                 contents=prompt
             )
             
