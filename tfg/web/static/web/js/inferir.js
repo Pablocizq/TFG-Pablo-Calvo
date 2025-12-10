@@ -16,7 +16,14 @@
             extension_temporal: [],
             extension_espacial: []
         },
-        customPrompt: null
+        customPrompts: {
+            titulo: null,
+            descripcion: null,
+            tema: null,
+            palabras_clave: null,
+            extension_temporal: null,
+            extension_espacial: null
+        }
     };
 
     const alerta = document.getElementById('alerta');
@@ -161,7 +168,7 @@
                         `).join('')
                 }
                 </div>
-                ${campo.id === 'titulo' && assigned.length > 0 ? `
+                ${assigned.length > 0 ? `
                     <button class="edit-prompt-btn" data-field="${campo.id}">
                         ✏️ Editar prompt de IA
                     </button>
@@ -176,7 +183,10 @@
         });
 
         document.querySelectorAll('.edit-prompt-btn').forEach(btn => {
-            btn.addEventListener('click', () => showPromptEditorModal());
+            btn.addEventListener('click', (e) => {
+                const fieldId = e.target.dataset.field;
+                showPromptEditorModal(fieldId);
+            });
         });
     }
 
@@ -250,25 +260,84 @@
         renderMetadataAssignments();
     }
 
-    function getDefaultPrompt() {
-        return `Analiza el siguiente contenido de datos y genera un título descriptivo y conciso (máximo 20 palabras) que resuma de qué trata este conjunto de datos.
+    function getDefaultPromptForField(fieldId) {
+        const prompts = {
+            titulo: `Analiza el siguiente contenido de datos y genera un título descriptivo y conciso (máximo 20 palabras) que resuma de qué trata este conjunto de datos.
 
 Responde SOLO con el título, sin explicaciones adicionales, sin comillas, sin puntos finales.
 
 Contenido del archivo:
-{file_content}`;
+{file_content}`,
+
+            descripcion: `Analiza el siguiente contenido de datos y genera una descripción detallada (2-3 oraciones) que explique de qué trata este conjunto de datos.
+
+Responde SOLO con la descripción, sin comillas ni puntos finales.
+
+Contenido del archivo:
+{file_content}`,
+
+            tema: `Analiza el siguiente contenido de datos y selecciona EXACTAMENTE UNO de estos temas que mejor lo describa:
+
+1. Agricultura, pesca, silvicultura y alimentación
+2. Economía y finanzas
+3. Educación, cultura y deportes
+4. Energía
+5. Medio ambiente
+6. Gobierno y sector público
+7. Salud
+8. Asuntos internacionales
+9. Justicia, sistema judicial y seguridad pública
+10. Regiones y ciudades
+11. Población y sociedad
+12. Ciencia y tecnología
+13. Transportes
+
+Responde SOLO con el número y nombre del tema seleccionado (ej: "5. Medio ambiente"), sin explicaciones adicionales.
+
+Contenido del archivo:
+{file_content}`,
+
+            palabras_clave: `Analiza el siguiente contenido de datos y genera entre 5 y 10 palabras clave relevantes que describan el contenido.
+
+Responde SOLO con las palabras clave separadas por comas, sin numeración ni explicaciones.
+
+Contenido del archivo:
+{file_content}`,
+
+            extension_temporal: `Analiza el siguiente contenido de datos e identifica el período temporal cubierto por la información.
+
+Formatos válidos: "2020-2025", "Enero 2023", "2022", "Siglo XXI", etc.
+
+Responde SOLO con el período temporal, sin explicaciones adicionales.
+
+Contenido del archivo:
+{file_content}`,
+
+            extension_espacial: `Analiza el siguiente contenido de datos e identifica la zona geográfica cubierta por la información.
+
+Formatos válidos: "España", "Europa", "Madrid", "Global", "América Latina", etc.
+
+Responde SOLO con la ubicación geográfica, sin explicaciones adicionales.
+
+Contenido del archivo:
+{file_content}`
+        };
+
+        return prompts[fieldId] || prompts.titulo;
     }
 
-    function showPromptEditorModal() {
-        const currentPrompt = state.customPrompt || getDefaultPrompt();
+    function showPromptEditorModal(fieldId) {
+        const campos = JSON.parse(document.getElementById('campos-data').textContent || '[]');
+        const campo = campos.find(c => c.id === fieldId);
+        const currentPrompt = state.customPrompts[fieldId] || getDefaultPromptForField(fieldId);
 
         const modal = document.createElement('div');
         modal.className = 'prompt-editor-modal';
         modal.innerHTML = `
             <div class="modal-content prompt-modal-content">
-                <h3>✏️ Editar Prompt de IA</h3>
-                <p class="prompt-description">Personaliza el prompt que se enviará a la IA. Usa <code>{file_content}</code> donde quieras que se inserte el contenido del archivo.</p>
-                <textarea class="prompt-textarea" rows="10">${currentPrompt}</textarea>
+                <h3>✏️ Editar Prompt de IA - ${campo ? campo.nombre : fieldId}</h3>
+                <p class="prompt-description">Personaliza el prompt que se enviará a la IA para generar <strong>${campo ? campo.nombre.toLowerCase() : fieldId}</strong>. Usa <code>{file_content}</code> donde quieras que se inserte el contenido del archivo.</p>
+                <textarea class="prompt-textarea" rows="12">${currentPrompt}</textarea>
                 <div class="prompt-modal-actions">
                     <button class="btn secundario prompt-cancel">Cancelar</button>
                     <button class="btn primario prompt-save">💾 Guardar prompt</button>
@@ -285,8 +354,8 @@ Contenido del archivo:
         saveBtn.addEventListener('click', () => {
             const newPrompt = textarea.value.trim();
             if (newPrompt) {
-                state.customPrompt = newPrompt;
-                console.log('Prompt personalizado guardado:', newPrompt);
+                state.customPrompts[fieldId] = newPrompt;
+                console.log(`Prompt personalizado guardado para ${fieldId}:`, newPrompt);
             }
             document.body.removeChild(modal);
         });
@@ -308,7 +377,6 @@ Contenido del archivo:
     inferirBtn.addEventListener('click', async () => {
         // Deshabilitar botón inmediatamente
         inferirBtn.disabled = true;
-        inferirBtn.textContent = 'Generando título con IA...';
 
         const result = {};
         Object.entries(state.selectedProperties).forEach(([field, properties]) => {
@@ -328,62 +396,115 @@ Contenido del archivo:
         // Construir URL de metadatos
         const metadatosUrl = `/metadatos/?name=${encodeURIComponent(name)}&formato=${encodeURIComponent(formato)}&metadata_url=${encodeURIComponent(metadataUrl)}`;
 
-        // Generar título con IA
-        try {
-            const datasetFiles = JSON.parse(sessionStorage.getItem('datasetFiles'));
+        // Obtener archivos de sessionStorage
+        const datasetFiles = JSON.parse(sessionStorage.getItem('datasetFiles'));
+        if (!datasetFiles || datasetFiles.length === 0) {
+            inferirBtn.textContent = '⚠️ No se encontraron archivos';
+            setTimeout(() => {
+                inferirBtn.disabled = false;
+                inferirBtn.textContent = 'Inferir metadatos';
+            }, 3000);
+            return;
+        }
 
-            if (!datasetFiles || datasetFiles.length === 0) {
-                throw new Error('No se encontraron archivos en sessionStorage');
+        // Campos a generar (solo los que tienen propiedades asignadas)
+        const fieldsToGenerate = Object.keys(result);
+        const generatedMetadata = {};
+        const errors = [];
+
+        // Función para generar un metadato
+        const generateMetadata = async (fieldId) => {
+            try {
+                const requestBody = {
+                    files: datasetFiles,
+                    selectedProperties: result,
+                    field_id: fieldId
+                };
+
+                // Si hay un prompt personalizado para este campo, incluirlo
+                if (state.customPrompts[fieldId]) {
+                    requestBody.custom_prompt = state.customPrompts[fieldId];
+                }
+
+                const response = await fetch('/api/generate-metadata/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success && data.value) {
+                    generatedMetadata[fieldId] = data.value;
+                    return { success: true, fieldId, value: data.value };
+                } else {
+                    throw new Error('No se pudo generar el metadato: respuesta inesperada de la IA');
+                }
+            } catch (error) {
+                console.error(`Error generando ${fieldId}:`, error);
+                errors.push({ fieldId, error: error.message });
+                return { success: false, fieldId, error: error.message };
             }
+        };
 
-            const requestBody = {
-                files: datasetFiles,
-                selectedProperties: result
-            };
+        // Generar metadatos secuencialmente
+        for (let i = 0; i < fieldsToGenerate.length; i++) {
+            const fieldId = fieldsToGenerate[i];
+            const campos = JSON.parse(document.getElementById('campos-data').textContent || '[]');
+            const campo = campos.find(c => c.id === fieldId);
+            const fieldName = campo ? campo.nombre : fieldId;
 
-            // Si hay un prompt personalizado, incluirlo en el request
-            if (state.customPrompt) {
-                requestBody.custom_prompt = state.customPrompt;
-            }
+            inferirBtn.textContent = `⏳ Generando ${fieldName}... (${i + 1}/${fieldsToGenerate.length})`;
 
-            const response = await fetch('/api/generate-title/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCSRFToken()
-                },
-                body: JSON.stringify(requestBody)
-            });
+            const generateResult = await generateMetadata(fieldId);
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-            }
-
-            const data = await response.json();
-
-            if (data.success && data.title) {
-                sessionStorage.setItem('aiGeneratedTitle', data.title);
-                resultadoJson.textContent = `✅ Título generado por IA:\n"${data.title}"\n\nPropiedades seleccionadas:\n${JSON.stringify(result, null, 2)}`;
-                resultadoPanel.hidden = false;
-
-                setTimeout(() => {
-                    window.location.href = metadatosUrl;
-                }, 2000);
+            if (generateResult.success) {
+                inferirBtn.textContent = `✅ ${fieldName} generado (${i + 1}/${fieldsToGenerate.length})`;
             } else {
-                throw new Error('No se pudo generar el título: respuesta inesperada de la IA');
+                inferirBtn.textContent = `⚠️ Error en ${fieldName} (${i + 1}/${fieldsToGenerate.length})`;
             }
-        } catch (error) {
-            console.error('Error generando título:', error);
-            resultadoJson.textContent = `⚠️ Error al generar título con IA: ${error.message}\n\nContinuando sin título automático...\n\nPropiedades seleccionadas:\n${JSON.stringify(result, null, 2)}`;
-            resultadoPanel.hidden = false;
 
-            inferirBtn.disabled = false;
-            inferirBtn.textContent = 'Confirmar selección';
+            // Pequeña pausa para que el usuario vea el progreso
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        // Guardar todos los metadatos generados en sessionStorage
+        Object.entries(generatedMetadata).forEach(([fieldId, value]) => {
+            // Capitalize first letter for sessionStorage key
+            const keyName = 'aiGenerated' + fieldId.charAt(0).toUpperCase() + fieldId.slice(1).replace(/_/g, '');
+            sessionStorage.setItem(keyName, value);
+        });
+
+        // Mostrar resultado
+        if (errors.length === 0) {
+            resultadoJson.textContent = `✅ Todos los metadatos generados exitosamente:\n\n${JSON.stringify(generatedMetadata, null, 2)}`;
+            resultadoPanel.hidden = false;
+            inferirBtn.textContent = '✅ Completado. Redirigiendo...';
+
+            setTimeout(() => {
+                window.location.href = metadatosUrl;
+            }, 2000);
+        } else if (Object.keys(generatedMetadata).length > 0) {
+            resultadoJson.textContent = `⚠️ Generación parcialmente exitosa:\n\nÉxitos:\n${JSON.stringify(generatedMetadata, null, 2)}\n\nErrores:\n${errors.map(e => `- ${e.fieldId}: ${e.error}`).join('\n')}`;
+            resultadoPanel.hidden = false;
+            inferirBtn.textContent = `⚠️ ${errors.length} error(es). Redirigiendo...`;
 
             setTimeout(() => {
                 window.location.href = metadatosUrl;
             }, 3000);
+        } else {
+            resultadoJson.textContent = `❌ Error: No se pudo generar ningún metadato:\n\n${errors.map(e => `- ${e.fieldId}: ${e.error}`).join('\n')}`;
+            resultadoPanel.hidden = false;
+            inferirBtn.disabled = false;
+            inferirBtn.textContent = 'Reintentar generación';
         }
     });
 

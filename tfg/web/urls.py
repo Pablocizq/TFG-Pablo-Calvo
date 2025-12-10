@@ -12,4 +12,5 @@ urlpatterns = [
     path('inferir/', views.inferir, name='inferir'),
     path('api/extract-properties/', views.extract_properties_api, name='extract_properties_api'),
     path('api/generate-title/', views.generate_title_with_ai, name='generate_title_with_ai'),
+    path('api/generate-metadata/', views.generate_metadata_with_ai, name='generate_metadata_with_ai'),
 ]

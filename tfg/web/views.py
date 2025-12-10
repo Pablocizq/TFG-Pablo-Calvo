@@ -982,7 +982,7 @@ Contenido del archivo:
         try:
             client = genai.Client(api_key=api_key)
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-2.5-flash-lite',
                 contents=prompt
             )
             
@@ -991,6 +991,129 @@ Contenido del archivo:
             
             return JsonResponse({
                 'title': generated_title,
+                'success': True
+            })
+        except Exception as ge:
+            return JsonResponse({'error': f'Error al llamar a Gemini: {str(ge)}'}, status=500)
+        
+    except json.JSONDecodeError as je:
+        return JsonResponse({'error': f'Error al parsear datos JSON: {str(je)}'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': f'Error inesperado: {str(e)}'}, status=500)
+
+
+def generate_metadata_with_ai(request):
+    """API endpoint to generate any metadata field using AI."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST requests allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        files = data.get('files', [])
+        field_id = data.get('field_id', '')
+        custom_prompt = data.get('custom_prompt', None)
+        
+        if not files:
+            return JsonResponse({'error': 'No se proporcionaron archivos'}, status=400)
+        
+        if not field_id:
+            return JsonResponse({'error': 'No se proporcionÃ³ field_id'}, status=400)
+        
+        file_content = _decode_file_content(files[0].get('content', ''))
+        if not file_content:
+            return JsonResponse({'error': 'No se pudo decodificar el contenido del archivo'}, status=400)
+        
+        # Limitar contenido a primeros 1500 caracteres
+        file_content_truncated = file_content[:1500]
+        
+        # Prompts por defecto para cada campo
+        DEFAULT_PROMPTS = {
+            'titulo': '''Analiza el siguiente contenido de datos y genera un tÃ­tulo descriptivo y conciso (mÃ¡ximo 20 palabras) que resuma de quÃ© trata este conjunto de datos.
+
+Responde SOLO con el tÃ­tulo, sin explicaciones adicionales, sin comillas, sin puntos finales.
+
+Contenido del archivo:
+{file_content}''',
+            
+            'descripcion': '''Analiza el siguiente contenido de datos y genera una descripciÃ³n detallada (60 palabras) que explique de quÃ© trata este conjunto de datos.
+
+Responde SOLO con la descripciÃ³n, sin comillas ni puntos finales.
+
+Contenido del archivo:
+{file_content}''',
+            
+            'tema': '''Analiza el siguiente contenido de datos y selecciona EXACTAMENTE UNO de estos temas que mejor lo describa:
+
+1. Agricultura, pesca, silvicultura y alimentaciÃ³n
+2. EconomÃ­a y finanzas
+3. EducaciÃ³n, cultura y deportes
+4. EnergÃ­a
+5. Medio ambiente
+6. Gobierno y sector pÃºblico
+7. Salud
+8. Asuntos internacionales
+9. Justicia, sistema judicial y seguridad pÃºblica
+10. Regiones y ciudades
+11. PoblaciÃ³n y sociedad
+12. Ciencia y tecnologÃ­a
+13. Transportes
+
+Responde SOLO con el nombre del tema seleccionado (ej: "Medio ambiente"), sin explicaciones adicionales.
+
+Contenido del archivo:
+{file_content}''',
+            
+            'palabras_clave': '''Analiza el siguiente contenido de datos y genera entre 3 y 5 palabras clave relevantes que describan el contenido.
+
+Responde SOLO con las palabras clave separadas por comas, sin numeraciÃ³n ni explicaciones.
+
+Contenido del archivo:
+{file_content}''',
+            
+            'extension_temporal': '''Analiza el siguiente contenido de datos e identifica el perÃ­odo temporal cubierto por la informaciÃ³n.
+
+El unico formato valido es el siguiente: "dd-mm-aaaa - dd-mm-aaaa"
+Siendo dd el dia, mm el mes y aaaa el año.
+
+Responde SOLO con el perÃ­odo temporal, sin explicaciones adicionales.
+
+Contenido del archivo:
+{file_content}''',
+            
+            'extension_espacial': '''Analiza el siguiente contenido de datos e identifica la zona geogrÃ¡fica cubierta por la informaciÃ³n.
+
+Formatos vÃ¡lidos: "EspaÃ±a", "Europa", "Madrid", "Global", "AmÃ©rica Latina", etc.
+
+Responde SOLO con la ubicaciÃ³n geogrÃ¡fica, sin explicaciones adicionales.
+
+Contenido del archivo:
+{file_content}'''
+        }
+        
+        # Si hay un prompt personalizado, usarlo; sino usar el por defecto
+        if custom_prompt and custom_prompt.strip():
+            prompt = custom_prompt.replace('{file_content}', file_content_truncated)
+        else:
+            default_prompt = DEFAULT_PROMPTS.get(field_id, DEFAULT_PROMPTS['titulo'])
+            prompt = default_prompt.replace('{file_content}', file_content_truncated)
+        
+        api_key = os.getenv('API_KEY')
+        if not api_key:
+            return JsonResponse({'error': 'API_KEY no configurada en variables de entorno'}, status=500)
+        
+        try:
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash-lite',
+                contents=prompt
+            )
+            
+            generated_value = response.text.strip()
+            generated_value = generated_value.strip('"\'')
+            
+            return JsonResponse({
+                'value': generated_value,
+                'field_id': field_id,
                 'success': True
             })
         except Exception as ge:

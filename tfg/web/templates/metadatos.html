@@ -84,6 +84,12 @@
                 </div>
 
                 <div class="campo">
+                    <label>Palabras clave:</label>
+                    <input type="text" name="palabras_clave"
+                        placeholder="Ej. datos abiertos, sostenibilidad, energía renovable">
+                </div>
+
+                <div class="campo">
                     <label>Extensión temporal:</label>
                     <input type="text" name="extension_temporal" placeholder="Ej. 2020 - 2025">
                 </div>
@@ -159,22 +165,29 @@
                 field.value = stored;
             }
 
-            // Prefill título generado por IA
-            const aiGeneratedTitle = sessionStorage.getItem('aiGeneratedTitle');
-            if (aiGeneratedTitle) {
-                const tituloInput = document.querySelector('input[name="titulo"]');
-                if (tituloInput && (!tituloInput.value || !tituloInput.value.trim())) {
-                    tituloInput.value = aiGeneratedTitle;
+            // Prefill ALL AI-generated metadata fields
+            const aiMetadata = {
+                titulo: sessionStorage.getItem('aiGeneratedTitulo'),
+                descripcion: sessionStorage.getItem('aiGeneratedDescripcion'),
+                tema: sessionStorage.getItem('aiGeneratedTema'),
+                palabras_clave: sessionStorage.getItem('aiGeneratedPalabrasclave'),
+                extension_temporal: sessionStorage.getItem('aiGeneratedExtensiontemporal'),
+                extension_espacial: sessionStorage.getItem('aiGeneratedExtensionespacial')
+            };
 
-                    // Highlight the field briefly to show it was auto-filled
-                    tituloInput.style.background = '#e0f2fe';
-                    setTimeout(() => {
-                        tituloInput.style.background = '';
-                    }, 2000);
+            Object.entries(aiMetadata).forEach(([fieldName, value]) => {
+                if (value) {
+                    const input = document.querySelector(`[name="${fieldName}"]`);
+                    if (input && (!input.value || !input.value.trim())) {
+                        input.value = value;
+                        input.style.background = '#e0f2fe';
+                        setTimeout(() => input.style.background = '', 2000);
+                    }
+                    // Clear from sessionStorage
+                    const keyName = 'aiGenerated' + fieldName.charAt(0).toUpperCase() + fieldName.slice(1).replace(/_/g, '');
+                    sessionStorage.removeItem(keyName);
                 }
-                // Clear it from session storage after use
-                sessionStorage.removeItem('aiGeneratedTitle');
-            }
+            });
 
             const form = document.querySelector('.formulario');
             const tryPrefill = () => {
