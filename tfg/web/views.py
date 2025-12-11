@@ -955,6 +955,12 @@ def generate_title_with_ai(request):
         data = json.loads(request.body)
         files = data.get('files', [])
         custom_prompt = data.get('custom_prompt', None)
+        ai_model = data.get('ai_model', 'gemini-2.5-flash-lite')
+        
+        # Validar modelo permitido
+        ALLOWED_AI_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash']
+        if ai_model not in ALLOWED_AI_MODELS:
+            return JsonResponse({'error': f'Modelo no permitido: {ai_model}'}, status=400)
         
         if not files:
             return JsonResponse({'error': 'No se proporcionaron archivos'}, status=400)
@@ -964,7 +970,7 @@ def generate_title_with_ai(request):
             return JsonResponse({'error': 'No se pudo decodificar el contenido del archivo'}, status=400)
         
         # Limitar contenido a primeros 1500 caracteres (reducido para evitar exceder límites de API)
-        file_content_truncated = file_content[:5000]
+        file_content_truncated = file_content[:1500]
         
         # Si hay un prompt personalizado, usarlo y reemplazar {file_content}
         if custom_prompt and custom_prompt.strip():
@@ -985,7 +991,7 @@ Contenido del archivo:
         try:
             client = genai.Client(api_key=api_key)
             response = client.models.generate_content(
-                model='gemini-2.5-flash-lite',
+                model=ai_model,
                 contents=prompt
             )
             
@@ -1015,6 +1021,12 @@ def generate_metadata_with_ai(request):
         files = data.get('files', [])
         field_id = data.get('field_id', '')
         custom_prompt = data.get('custom_prompt', None)
+        ai_model = data.get('ai_model', 'gemini-2.5-flash-lite')
+        
+        # Validar modelo permitido
+        ALLOWED_AI_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash']
+        if ai_model not in ALLOWED_AI_MODELS:
+            return JsonResponse({'error': f'Modelo no permitido: {ai_model}'}, status=400)
         
         if not files:
             return JsonResponse({'error': 'No se proporcionaron archivos'}, status=400)
@@ -1107,7 +1119,7 @@ Contenido del archivo:
         try:
             client = genai.Client(api_key=api_key)
             response = client.models.generate_content(
-                model='gemini-2.5-flash-lite',
+                model=ai_model,
                 contents=prompt
             )
             

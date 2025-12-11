@@ -412,13 +412,17 @@ Contenido del archivo:
         const generatedMetadata = {};
         const errors = [];
 
+        // Obtener el modelo seleccionado
+        const selectedModel = document.getElementById('ai-model-select')?.value || 'gemini-2.5-flash-lite';
+
         // Función para generar un metadato
         const generateMetadata = async (fieldId) => {
             try {
                 const requestBody = {
                     files: datasetFiles,
                     selectedProperties: result,
-                    field_id: fieldId
+                    field_id: fieldId,
+                    ai_model: selectedModel
                 };
 
                 // Si hay un prompt personalizado para este campo, incluirlo
