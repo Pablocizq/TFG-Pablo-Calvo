@@ -55,7 +55,8 @@
             <div class="grid-campos">
                 <div class="campo">
                     <label>Identificador:</label>
-                    <input type="text" name="identificador" placeholder="Ej. dataset_001">
+                    <input type="text" name="identificador"
+                        placeholder="El id del dataset se muestra al ingestarlo en CKAN">
                 </div>
 
                 <div class="campo">
@@ -518,6 +519,7 @@
             });
         })();
     </script>
+    <script src="{% static 'web/js/ckan_integration.js' %}"></script>
 </body>
 
 </html>

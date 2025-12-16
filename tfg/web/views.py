@@ -14,7 +14,11 @@ import json
 import base64
 import re
 import os
+import uuid
+import io
+import requests
 from google import genai
+from .services.ckan_service import CkanClient
 
 INFERENCIA_CAMPOS = [
     {
@@ -140,7 +144,6 @@ def crear_conjunto(request):
                     ]
                 )
                 row = cursor.fetchone()
-                # row será (id_dataset, created_at) si el RETURNING tuvo éxito.
                 id_dataset = row[0] if row else None
                 
                 # Procesar archivos si existen
@@ -1138,3 +1141,181 @@ Contenido del archivo:
         return JsonResponse({'error': f'Error al parsear datos JSON: {str(je)}'}, status=400)
     except Exception as e:
         return JsonResponse({'error': f'Error inesperado: {str(e)}'}, status=500)
+
+
+def ckan_proxies(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        action = data.get('action')
+        ckan = CkanClient(user_id=1)
+        
+        if action == 'get_organizations':
+            response = ckan.get_user_organizations()
+            return JsonResponse(response)
+            
+        elif action == 'create_organization':
+            name = data.get('name')
+            description = data.get('description')
+            if not name:
+                return JsonResponse({'error': 'Name is required'}, status=400)
+            response = ckan.create_organization(name, description)
+            return JsonResponse(response)
+            
+        else:
+            return JsonResponse({'error': 'Invalid action'}, status=400)
+            
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def publish_to_ckan(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST allowed'}, status=405)
+        
+    try:
+        
+        ckan = CkanClient(user_id=1)
+        
+        dataset_id = request.POST.get('id_dataset')
+        is_update = bool(dataset_id)
+        
+        files_list = []
+        files_json = request.POST.get('dataset_files_data')
+        if files_json:
+            try:
+                files_list = json.loads(files_json)
+            except:
+                pass
+
+        title = request.POST.get('titulo')
+        
+        if not title and files_list:
+            first_file_name = files_list[0].get('name', '')
+            if first_file_name:
+                title = first_file_name.rsplit('.', 1)[0]
+        
+        desc_parts = [
+            request.POST.get('descripcion', ''),
+            request.POST.get('tema', ''),
+            request.POST.get('extension_temporal', ''),
+            request.POST.get('extension_espacial', '')
+        ]
+        description = ' . '.join([p for p in desc_parts if p])
+        
+        tags_input = request.POST.get('palabras_clave', '')
+        tags = [{'name': t.strip()} for t in tags_input.split(',') if t.strip()]
+        
+        license_id = request.POST.get('licencia', 'cc-by')
+        
+        organization_id = request.POST.get('organization_id')
+        
+        if not organization_id and not is_update:
+             return JsonResponse({'error': 'Organization ID is required for new datasets'}, status=400)
+
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT nombre, correo FROM usuario WHERE id_usuario = 1")
+            user_row = cursor.fetchone()
+            author_name = user_row[0] if user_row else ''
+            author_email = user_row[1] if user_row else ''
+            
+        metadata = {
+            'title': title or 'Nuevo Dataset',
+            'notes': description,
+            'tags': tags,
+            'license_id': license_id,
+            'author': author_name,
+            'author_email': author_email,
+            'maintainer': author_name,
+            'maintainer_email': author_email,
+            'private': True 
+        }
+        
+        if is_update:
+            ckan_resp = ckan.update_dataset(dataset_id, metadata, organization_id)
+        else:
+            slug = slugify(title) if title else 'dataset'
+            if not slug: 
+                slug = 'dataset'
+            metadata['name'] = f"{slug}-{str(uuid.uuid4())[:8]}"
+            
+            ckan_resp = ckan.create_dataset(metadata, organization_id)
+            
+        ckan_dataset_id = ckan_resp['result']['id']
+        
+        for file_info in files_list:
+            content_original = file_info.get('content', '')
+            if not content_original: continue
+            
+            if 'base64,' in content_original:
+                _, b64_data = content_original.split('base64,')
+            else:
+                b64_data = content_original
+            
+            try:
+                file_bytes = base64.b64decode(b64_data)
+                file_obj = io.BytesIO(file_bytes)
+                filename = file_info.get('name', 'resource')
+                file_fmt = file_info.get('type', '')
+                
+                ckan.resource_create(ckan_dataset_id, file_obj, filename, file_fmt)
+            except Exception:
+                continue
+        
+        with connection.cursor() as cursor:
+            def nz(val): return (val or '').strip() or None
+            
+            identificador = ckan_dataset_id
+            name = request.POST.get('name') or title
+            
+            db_values = [
+                1, name, identificador, title, nz(request.POST.get('descripcion')), 
+                nz(request.POST.get('dcat_type')), nz(request.POST.get('idioma')), nz(request.POST.get('tema')),
+                nz(request.POST.get('palabras_clave')), nz(request.POST.get('extension_temporal')), 
+                nz(request.POST.get('extension_espacial')), nz(request.POST.get('url_descarga')),
+                nz(request.POST.get('issued')), nz(request.POST.get('modificado')),
+                nz(request.POST.get('publisher_name')), nz(request.POST.get('url_acceso')),
+                nz(request.POST.get('formato')), nz(request.POST.get('licencia')),
+                nz(request.POST.get('derechos')), nz(request.POST.get('descripcion_distribucion')),
+                nz(request.POST.get('url_metadatos')), nz(request.POST.get('metadata_content'))
+            ]
+            
+            if is_update:
+                cursor.execute(
+                    """
+                    UPDATE dataset SET
+                        nombre=%s, identificador=%s, titulo=%s, descripcion=%s, dcat_type=%s, idioma=%s, 
+                        tema=%s, palabras_clave=%s, extension_temporal=%s, extension_espacial=%s, url_descarga=%s, 
+                        issued=%s, modificado=%s, publisher_name=%s, url_acceso=%s, 
+                        formato=%s, licencia=%s, derechos=%s, descripcion_distribucion=%s, 
+                        url_metadatos=%s, contenido_metadatos=%s
+                    WHERE id_dataset = %s
+                    """,
+                    db_values[1:] + [dataset_id]
+                )
+                local_id = dataset_id
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO dataset (
+                        id_usuario, nombre, identificador, titulo, descripcion, dcat_type, idioma, tema,
+                        palabras_clave, extension_temporal, extension_espacial, url_descarga, issued, modificado,
+                        publisher_name, url_acceso, formato, licencia, derechos, descripcion_distribucion, url_metadatos, contenido_metadatos,
+                        fecha_creacion
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+                    RETURNING id_dataset
+                    """,
+                    db_values
+                )
+                row = cursor.fetchone()
+                local_id = row[0] if row else None
+                
+        return JsonResponse({'success': True, 'dataset_id': local_id, 'ckan_id': ckan_dataset_id})
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
