@@ -748,6 +748,7 @@ def generar_turtle(request):
         'dcat_type': request.POST.get('dcat_type', '').strip(),
         'idioma': request.POST.get('idioma', '').strip(),
         'tema': request.POST.get('tema', '').strip(),
+        'palabras_clave': request.POST.get('palabras_clave', '').strip(),
         'extension_temporal': request.POST.get('extension_temporal', '').strip(),
         'extension_espacial': request.POST.get('extension_espacial', '').strip(),
         'url_descarga': request.POST.get('url_descarga', '').strip(),
@@ -770,7 +771,8 @@ def generar_turtle(request):
         "@prefix dct: <http://purl.org/dc/terms/> .\n"
         "@prefix dcat: <http://www.w3.org/ns/dcat#> .\n"
         "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n"
-        "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n\n"
+        "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n"
+        "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n\n"
     )
 
     statements = []
@@ -797,6 +799,15 @@ def generar_turtle(request):
     add_literal('dct:type', fields['dcat_type'])
     add_literal('dct:language', fields['idioma'])
     add_literal('dcat:theme', fields['tema'])
+    if fields['palabras_clave']:
+        keywords = [k.strip() for k in fields['palabras_clave'].split(',') if k.strip()]
+        if keywords:
+            kw_lines = []
+            for i, kw in enumerate(keywords):
+                prefix = 'dcat:keyword ' if i == 0 else '             '
+                suffix = ' ,' if i < len(keywords) - 1 else ''
+                kw_lines.append(f'{prefix}"{_escape_literal(kw)}"@es{suffix}')
+            statements.append(kw_lines)
     temp_ext = fields['extension_temporal']
     if temp_ext and ' / ' in temp_ext:
         parts = temp_ext.split(' / ')
@@ -811,7 +822,13 @@ def generar_turtle(request):
             ])
     else:
         add_literal('dct:temporal', temp_ext)
-    add_literal('dct:spatial', fields['extension_espacial'])
+    if fields['extension_espacial']:
+        statements.append([
+            'dct:spatial [',
+            '        a dct:Location ;',
+            f'        skos:prefLabel "{_escape_literal(fields["extension_espacial"])}"@es',
+            '    ]'
+        ])
     add_literal('dct:issued', fields['issued'], datatype='xsd:date')
     add_literal('dct:modified', fields['modificado'], datatype='xsd:date')
     add_literal('dct:format', fields['formato'])
