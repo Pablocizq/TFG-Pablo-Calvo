@@ -154,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusDiv.textContent = '¡Publicado con éxito! ID: ' + result.dataset_dataset;
                 statusDiv.style.color = 'green';
                 setTimeout(() => {
-                    window.location.href = `/dataset/${result.dataset_id}/`;
+                    window.location.href = `/inicio/`;
                 }, 1500);
             } else {
                 statusDiv.textContent = 'Error: ' + (result.error || 'Desconocido');

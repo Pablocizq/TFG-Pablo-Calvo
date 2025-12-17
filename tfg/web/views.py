@@ -797,7 +797,20 @@ def generar_turtle(request):
     add_literal('dct:type', fields['dcat_type'])
     add_literal('dct:language', fields['idioma'])
     add_literal('dcat:theme', fields['tema'])
-    add_literal('dct:temporal', fields['extension_temporal'])
+    temp_ext = fields['extension_temporal']
+    if temp_ext and ' / ' in temp_ext:
+        parts = temp_ext.split(' / ')
+        if len(parts) == 2:
+            start, end = parts
+            statements.append([
+                'dct:temporal [',
+                '        a dct:PeriodOfTime ;',
+                f'        dcat:startDate "{start}"^^xsd:date ;',
+                f'        dcat:endDate   "{end}"^^xsd:date',
+                '    ]'
+            ])
+    else:
+        add_literal('dct:temporal', temp_ext)
     add_literal('dct:spatial', fields['extension_espacial'])
     add_literal('dct:issued', fields['issued'], datatype='xsd:date')
     add_literal('dct:modified', fields['modificado'], datatype='xsd:date')
@@ -1060,21 +1073,21 @@ Responde SOLO con la descripciÃ³n, sin comillas ni puntos finales.
 Contenido del archivo:
 {file_content}''',
             
-            'tema': '''Analiza el siguiente contenido de datos y selecciona EXACTAMENTE UNO de estos temas que mejor lo describa:
+            'tema': '''Analiza el siguiente contenido de datos y selecciona EXACTAMENTE UNO de estos temas que mejor lo describa. Tambien te dejo las definiciones de los temas para ayudarte.
 
-1. Agricultura, pesca, silvicultura y alimentaciÃ³n
-2. EconomÃ­a y finanzas
-3. EducaciÃ³n, cultura y deportes
-4. EnergÃ­a
-5. Medio ambiente
-6. Gobierno y sector pÃºblico
-7. Salud
-8. Asuntos internacionales
-9. Justicia, sistema judicial y seguridad pÃºblica
-10. Regiones y ciudades
-11. PoblaciÃ³n y sociedad
-12. Ciencia y tecnologÃ­a
-13. Transportes
+1. Agricultura, pesca, silvicultura y alimentaciÃ³n: tema de un conjunto de datos que abarca los ámbitos de la agricultura, relacionada con el cultivo de plantas y el ganado; la pesca, que se centra en la recolección de peces salvajes o de piscifactoría; la silvicultura, que comprende la gestión y conservación de los bosques y de las superficies forestales arboladas; y los alimentos, que incluyen las sustancias que proporcionan apoyo nutricional a los organismos
+2. EconomÃ­a y finanzas: tema de un conjunto de datos que abarca los ámbitos de la actividad económica, que comprende la producción, la distribución, el comercio y el consumo de bienes y servicios, y la actividad financiera, centrada en la gestión del dinero a nivel particular, empresarial o gubernamental.
+3. EducaciÃ³n, cultura y deportes: tema de un conjunto de datos que abarca los ámbitos de la educación, que facilita el aprendizaje y la adquisición de conocimientos, capacidades, valores, creencias y hábitos; la cultura, que incluye el comportamiento social, las normas, el conocimiento, las creencias, las artes, las leyes, las costumbres, las capacidades y los hábitos de las sociedades humanas; y el deporte, que comprende las actividades físicas o los juegos de competición que mejoran la aptitud física y las capacidades, y con las que los participantes disfrutan y los espectadores se entretienen.
+4. EnergÃ­a: tema de un conjunto de datos que abarca el ámbito de la energía, definida como la propiedad cuantitativa necesaria para efectuar trabajos sobre objetos o para aumentar la temperatura de estos, y como un elemento vital para los organismos vivos y para el funcionamiento de la civilización humana.
+5. Medio ambiente: tema de un conjunto de datos que abarca el ámbito del medio ambiente, definido como la interacción entre el conjunto de las especies vivas, el clima, las condiciones meteorológicas y los recursos naturales que inciden sobre la supervivencia humana y la actividad económica.
+6. Gobierno y sector pÃºblico: tema de un conjunto de datos que abarca los ámbitos de la Administración pública, que es el sistema o grupo de personas que rigen una comunidad organizada —normalmente un Estado—, y el sector público, definido como el segmento de la economía en el que participan los servicios y empresas públicos, que pueden ser gestionados por las autoridades centrales, regionales o locales.
+7. Salud: tema de un conjunto de datos que abarca el ámbito de la salud, que comprende las enfermedades, los tratamientos, los servicios de atención sanitaria y las políticas sanitarias.
+8. Asuntos internacionales: tema de un conjunto de datos que abarca el ámbito de las cuestiones internacionales, que tiene que ver con temas o problemas significativos, objeto de debate o diálogo, que afectan a participantes de al menos dos países distintos.
+9. Justicia, sistema judicial y seguridad pÃºblica: tema de un conjunto de datos que abarca los ámbitos de la justicia, que se entiende como la equidad procesal en la aplicación del Derecho; el sistema jurídico, que comprende diversos marcos, entre ellos el Derecho civil, consuetudinario, positivo o religioso; y la seguridad pública, que denota la responsabilidad gubernamental de proteger a las personas, las organizaciones y las instituciones contra las amenazas que afectan a su bienestar y a la prosperidad de la comunidad.
+10. Regiones y ciudades: tema de un conjunto de datos que abarca los ámbitos de las regiones, definidas como unidades geográficas políticas —por ejemplo, los Estados soberanos, las zonas administrativas subnacionales y las agrupaciones multinacionales—, y las ciudades, que se caracterizan como grandes asentamientos humanos.
+11. PoblaciÃ³n y sociedad: tema de un conjunto de datos que abarca los ámbitos de la población, que se refiere al número total de personas que residen en los distintos niveles geográficos —desde las ciudades hasta la escala mundial—, y la sociedad, que denota un colectivo de personas que participan en una interacción social continua dentro de un territorio común, a menudo con arreglo a las mismas normas políticas y culturales.
+12. Ciencia y tecnologÃ­a: tema de un conjunto de datos que abarca los ámbitos de la ciencia, que es la búsqueda sistemática del conocimiento a través de explicaciones y predicciones verificables en las disciplinas naturales, sociales y formales, y la tecnología, que comprende las técnicas, capacidades, métodos y procesos colectivos utilizados para producir bienes, prestar servicios o alcanzar objetivos, como la investigación científica.
+13. Transportes: tema de un conjunto de datos que abarca el ámbito del transporte, que comprende el desplazamiento de personas, animales y mercancías de un lugar a otro mediante diversos modos de transporte; por ejemplo, el transporte aéreo, terrestre (por ferrocarril y por carretera), por vías navegables, por cable, por tubería o espacial.
 
 Responde SOLO con el nombre del tema seleccionado (ej: "Medio ambiente"), sin explicaciones adicionales.
 
@@ -1090,7 +1103,7 @@ Contenido del archivo:
             
             'extension_temporal': '''Analiza el siguiente contenido de datos e identifica el perÃ­odo temporal cubierto por la informaciÃ³n.
 
-El unico formato valido es el siguiente: "dd-mm-aaaa - dd-mm-aaaa"
+El unico formato valido es el siguiente: "dd-mm-aaaa / dd-mm-aaaa"
 Siendo dd el dia, mm el mes y aaaa el año.
 
 Responde SOLO con el perÃ­odo temporal, sin explicaciones adicionales.
