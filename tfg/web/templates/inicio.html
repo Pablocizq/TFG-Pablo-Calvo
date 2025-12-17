@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
     <link rel="stylesheet" href="{% static 'web/css/inicio.css' %}?v=20251104">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <header class="header">
         <h1>Tus conjuntos de datos</h1>
@@ -17,67 +19,71 @@
     <main class="contenedor">
         <div class="lista-conjuntos">
             {% for conjunto in conjuntos %}
-                <div class="tarjeta">
-                    <div class="info">
-                        <h2>{{ conjunto.nombre }}</h2>
-                        <p>Fecha: {{ conjunto.fecha_creacion|date:"d-m-Y" }}</p>
-                    </div>
-                    <div class="acciones">
-                        <button class="btn visualizar" data-url="{% url 'visualizar' conjunto.id_dataset %}">Visualizar</button>
-                        <button class="btn editar" data-url="{% url 'editar_metadatos' conjunto.id_dataset %}">Editar</button>
-                        <form method="post" action="{% url 'dataset_delete' conjunto.id_dataset %}" class="delete-form" style="display:inline;">
-                            {% csrf_token %}
-                            <button type="submit" class="btn eliminar">Eliminar</button>
-                        </form>
-                    </div>
+            <div class="tarjeta">
+                <div class="info">
+                    <h2>{{ conjunto.nombre }}</h2>
+                    <p>Fecha: {{ conjunto.fecha_creacion|date:"d-m-Y" }}</p>
                 </div>
+                <div class="acciones">
+                    <button class="btn visualizar"
+                        data-url="{% url 'visualizar' conjunto.id_dataset %}">Visualizar</button>
+                    <button class="btn editar"
+                        data-url="{% url 'editar_metadatos' conjunto.id_dataset %}">Editar</button>
+                    <form method="post" action="{% url 'dataset_delete' conjunto.id_dataset %}" class="delete-form"
+                        style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn eliminar">Eliminar</button>
+                    </form>
+                </div>
+            </div>
             {% empty %}
-                <p style="text-align:center; color:#666;">No hay conjuntos disponibles.</p>
+            <p style="text-align:center; color:#666;">No hay conjuntos disponibles.</p>
             {% endfor %}
         </div>
     </main>
 
     <button class="boton-flotante">+</button>
-    
-    <script>
-    // Redirigir al pulsar el botón + hacia la vista crear_conjunto
-    document.addEventListener('DOMContentLoaded', function(){
-        var btn = document.querySelector('.boton-flotante');
-        if (btn){
-            btn.addEventListener('click', function(){
-                window.location.href = "{% url 'crear_conjunto' %}";
-            });
-        }
-    });
 
-    document.addEventListener('DOMContentLoaded', function(){
-        document.querySelectorAll('.delete-form').forEach(function(form){
-            form.addEventListener('submit', function(e){
-                e.preventDefault();
-                var tarjeta = form.closest('.tarjeta');
-                var nombre = tarjeta ? (tarjeta.querySelector('h2') ? tarjeta.querySelector('h2').textContent : 'este conjunto') : 'este conjunto';
-                if (confirm('¿Estás seguro que quieres eliminar "' + nombre + '"? Esta acción no se puede deshacer.')){
-                    form.submit();
-                }
+    <script>
+        // Redirigir al pulsar el botón + hacia la vista crear_conjunto
+        document.addEventListener('DOMContentLoaded', function () {
+            var btn = document.querySelector('.boton-flotante');
+            if (btn) {
+                btn.addEventListener('click', function () {
+                    window.location.href = "{% url 'crear_conjunto' %}";
+                });
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.delete-form').forEach(function (form) {
+                form.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    var tarjeta = form.closest('.tarjeta');
+                    var nombre = tarjeta ? (tarjeta.querySelector('h2') ? tarjeta.querySelector('h2').textContent : 'este conjunto') : 'este conjunto';
+                    if (confirm('¿Estás seguro que quieres eliminar "' + nombre + '"? Esta acción no se puede deshacer.')) {
+                        form.submit();
+                    }
+                });
             });
         });
 
         // Redirección para botones "Visualizar" manteniendo <button>
-        document.querySelectorAll('button.visualizar').forEach(function(btn){
-            btn.addEventListener('click', function(){
+        document.querySelectorAll('button.visualizar').forEach(function (btn) {
+            btn.addEventListener('click', function () {
                 var url = btn.getAttribute('data-url');
                 if (url) window.location.href = url;
             });
         });
 
         // Redirección para botones "Editar" manteniendo <button>
-        document.querySelectorAll('button.editar').forEach(function(btn){
-            btn.addEventListener('click', function(){
+        document.querySelectorAll('button.editar').forEach(function (btn) {
+            btn.addEventListener('click', function () {
                 var url = btn.getAttribute('data-url');
                 if (url) window.location.href = url;
             });
         });
-    });
     </script>
 </body>
+
 </html>

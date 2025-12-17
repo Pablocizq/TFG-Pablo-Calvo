@@ -58,10 +58,17 @@ class CkanClient:
         return self._post("package_create", data=data)
 
     def update_dataset(self, dataset_id, metadata, organization_id=None):
-        data = metadata.copy()
+        try:
+            current = self._post("package_show", data={"id": dataset_id})
+            data = current.get('result', {})
+        except:
+            data = {}
+
+        data.update(metadata)
         data['id'] = dataset_id
         if organization_id:
             data['owner_org'] = organization_id
+            
         return self._post("package_update", data=data)
     
     def resource_create(self, dataset_id, file_obj, filename, file_format, description=""):
@@ -75,3 +82,12 @@ class CkanClient:
             'upload': (filename, file_obj)
         }
         return self._post("resource_create", data=data, files=files)
+
+    def delete_dataset(self, dataset_id):
+        return self._post("package_delete", data={"id": dataset_id})
+
+    def delete_organization(self, organization_id):
+        return self._post("organization_delete", data={"id": organization_id})
+
+    def get_organization(self, organization_id):
+        return self._post("organization_show", data={"id": organization_id, "include_datasets": True})

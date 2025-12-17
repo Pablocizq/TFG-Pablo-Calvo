@@ -70,7 +70,11 @@ def dataset_delete(request, pk):
     manejar el caso en que no exista.
     """
     dataset = get_object_or_404(Dataset, pk=pk)
-    dataset.delete()
+    
+    with connection.cursor() as cursor:
+        cursor.execute("DELETE FROM fichero WHERE id_dataset = %s", [dataset.pk])
+        cursor.execute("DELETE FROM dataset WHERE id_dataset = %s", [dataset.pk])
+
     return redirect('inicio')
 
 
@@ -97,16 +101,13 @@ def crear_conjunto(request):
                 'name': name,
             })
 
-        # Procesar inserción en la base de datos
         try:
             with connection.cursor() as cursor:
-                # Insertamos respetando el esquema de db.sql.
-                # Si el POST viene desde metadatos, intentamos guardar también los campos.
                 def nz(val):
                     v = (val or '').strip()
                     return v if v != '' else None
 
-                identificador = nz(request.POST.get('identificador'))
+                identificador = None
                 titulo = nz(request.POST.get('titulo'))
                 descripcion = nz(request.POST.get('descripcion'))
                 dcat_type = nz(request.POST.get('dcat_type'))
@@ -1193,6 +1194,13 @@ def ckan_proxies(request):
                 return JsonResponse({'error': 'Name is required'}, status=400)
             response = ckan.create_organization(name, description)
             return JsonResponse(response)
+
+        elif action == 'delete_organization':
+            org_id = data.get('id')
+            if not org_id:
+                return JsonResponse({'error': 'Org ID is required'}, status=400)
+            response = ckan.delete_organization(org_id)
+            return JsonResponse(response)
             
         else:
             return JsonResponse({'error': 'Invalid action'}, status=400)
@@ -1209,8 +1217,11 @@ def publish_to_ckan(request):
         
         ckan = CkanClient(user_id=1)
         
-        dataset_id = request.POST.get('id_dataset')
-        is_update = bool(dataset_id)
+        local_id = request.POST.get('id_dataset')
+        ckan_id = request.POST.get('identificador')
+
+        is_local_update = bool(local_id)
+        is_ckan_update = bool(ckan_id)
         
         files_list = []
         files_json = request.POST.get('dataset_files_data')
@@ -1242,7 +1253,7 @@ def publish_to_ckan(request):
         
         organization_id = request.POST.get('organization_id')
         
-        if not organization_id and not is_update:
+        if not organization_id and not is_ckan_update:
              return JsonResponse({'error': 'Organization ID is required for new datasets'}, status=400)
 
         with connection.cursor() as cursor:
@@ -1263,8 +1274,8 @@ def publish_to_ckan(request):
             'private': True 
         }
         
-        if is_update:
-            ckan_resp = ckan.update_dataset(dataset_id, metadata, organization_id)
+        if is_ckan_update:
+            ckan_resp = ckan.update_dataset(ckan_id, metadata, organization_id)
         else:
             slug = slugify(title) if title else 'dataset'
             if not slug: 
@@ -1312,7 +1323,7 @@ def publish_to_ckan(request):
                 nz(request.POST.get('url_metadatos')), nz(request.POST.get('metadata_content'))
             ]
             
-            if is_update:
+            if is_local_update:
                 cursor.execute(
                     """
                     UPDATE dataset SET
@@ -1323,9 +1334,8 @@ def publish_to_ckan(request):
                         url_metadatos=%s, contenido_metadatos=%s
                     WHERE id_dataset = %s
                     """,
-                    db_values[1:] + [dataset_id]
+                    db_values[1:] + [local_id]
                 )
-                local_id = dataset_id
             else:
                 cursor.execute(
                     """
@@ -1343,6 +1353,68 @@ def publish_to_ckan(request):
                 row = cursor.fetchone()
                 local_id = row[0] if row else None
                 
+        if local_id and files_list:
+            for file_info in files_list:
+                content_original = file_info.get('content', '')
+                if not content_original:
+                    continue
+                
+                if 'base64,' in content_original:
+                        _, content_base64 = content_original.split('base64,')
+                else:
+                        content_base64 = content_original
+                
+                try:
+                    file_bytes = base64.b64decode(content_base64)
+                    if b'\x00' in file_bytes:
+                        file_content = content_base64
+                    else:
+                        try:
+                            file_content = file_bytes.decode('utf-8')
+                        except UnicodeDecodeError:
+                            file_content = file_bytes.decode('latin-1')
+                except Exception:
+                    continue
+
+                file_name = file_info.get('name', '').lower()
+                file_type = file_info.get('type', '').lower()
+                formato_seleccionado = request.POST.get('formato', '')
+                
+                tipo_formato = None
+                if formato_seleccionado:
+                    tipo_formato = formato_seleccionado.upper()
+                elif file_name.endswith('.csv') or 'csv' in file_type:
+                    tipo_formato = 'CSV'
+                elif file_name.endswith('.json') or 'json' in file_type:
+                    tipo_formato = 'JSON'
+                elif file_name.endswith('.ttl') or 'turtle' in file_type:
+                    tipo_formato = 'RDF-TURTLE'
+                elif file_name.endswith('.xml') or file_name.endswith('.rdf') or 'xml' in file_type or 'rdf' in file_type:
+                    tipo_formato = 'RDF-XML'
+                
+                if not tipo_formato:
+                    tipo_formato = formato_seleccionado.upper() if formato_seleccionado else 'CSV'
+                
+                if tipo_formato not in ['CSV', 'RDF-XML', 'RDF-TURTLE', 'JSON']:
+                    tipo_formato = 'CSV'
+
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO fichero (
+                            id_dataset, tipo_formato, url_datos, contenido, nombre_archivo
+                        )
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        [
+                            local_id,
+                            tipo_formato,
+                            None,
+                            file_content,
+                            file_info.get('name', '')
+                        ]
+                    )
+
         return JsonResponse({'success': True, 'dataset_id': local_id, 'ckan_id': ckan_dataset_id})
         
     except Exception as e:

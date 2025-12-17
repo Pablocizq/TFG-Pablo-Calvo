@@ -24,6 +24,7 @@
             {% csrf_token %}
             <input type="hidden" name="metadata_content" id="metadata-content-field"
                 value="{{ contenido_metadatos|default:'' }}">
+            <input type="hidden" name="id_dataset" value="{{ dataset.id_dataset }}">
 
             {% if success %}
             <div class="notificacion notificacion-exito">{{ success }}</div>
@@ -36,6 +37,7 @@
                 <div class="campo">
                     <label>Identificador:</label>
                     <input type="text" name="identificador" value="{{ identificador|default:'' }}"
+                        readonly="{{ identificador|yesno:'readonly,' }}"
                         placeholder="El id del dataset se muestra al ingestarlo en CKAN">
                 </div>
 
@@ -144,7 +146,11 @@
             </div>
 
             <div class="botones">
+                {% if identificador %}
+                <button type="button" class="btn crear">ACTUALIZAR DATASET EN CKAN</button>
+                {% else %}
                 <button type="button" class="btn crear">CREAR DATASET EN CKAN</button>
+                {% endif %}
                 <button type="submit" class="btn guardar">GUARDAR CAMBIOS</button>
             </div>
         </form>

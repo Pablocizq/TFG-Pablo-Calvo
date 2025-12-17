@@ -43,11 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const orgSelect = document.getElementById('ckan-org-select');
     const stepCreateOrg = document.getElementById('ckan-step-create-org');
 
-    ckanBtn.addEventListener('click', async () => {
-        modal.style.display = 'flex';
-        await loadOrganizations();
-    });
-
     document.getElementById('btn-close-modal').addEventListener('click', () => {
         modal.style.display = 'none';
         document.getElementById('ckan-status').textContent = '';
@@ -113,34 +108,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('btn-confirm-ckan').addEventListener('click', async () => {
-        const orgId = orgSelect.value;
-        const form = document.querySelector('.formulario');
-
-        const isUpdate = window.location.pathname.includes('/editar/');
-        if (!orgId && !isUpdate) {
-            return alert('Debes seleccionar una organización.');
-        }
-
-        const formData = new FormData(form);
-        formData.set('organization_id', orgId);
-
-        if (!isUpdate) {
-            const storedFiles = sessionStorage.getItem('datasetFiles');
-            if (storedFiles) {
-                formData.set('dataset_files_data', storedFiles);
-            }
-        } else {
-        }
-
-        const metaField = document.getElementById('metadata-content-field');
-
-        if (metaField && metaField.value) {
-            formData.set('metadata_content', metaField.value);
-        }
-
+    async function publishToCkan(formData) {
         const statusDiv = document.getElementById('ckan-status');
         statusDiv.textContent = 'Publicando en CKAN...';
+        statusDiv.style.display = 'block';
         statusDiv.style.color = 'blue';
 
         try {
@@ -151,10 +122,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await res.json();
 
             if (result.success) {
-                statusDiv.textContent = '¡Publicado con éxito! ID: ' + result.dataset_dataset;
+                statusDiv.textContent = '¡Publicado con éxito! ID: ' + (result.ckan_id || 'OK');
                 statusDiv.style.color = 'green';
                 setTimeout(() => {
-                    window.location.href = `/inicio/`;
+                    const isUpdate = window.location.pathname.includes('/editar/');
+                    if (isUpdate) {
+                        window.location.reload();
+                    } else {
+                        window.location.href = `/inicio/`;
+                    }
                 }, 1500);
             } else {
                 statusDiv.textContent = 'Error: ' + (result.error || 'Desconocido');
@@ -164,7 +140,57 @@ document.addEventListener('DOMContentLoaded', () => {
             statusDiv.textContent = 'Error de red: ' + e.message;
             statusDiv.style.color = 'red';
         }
+    }
+
+    document.getElementById('btn-confirm-ckan').addEventListener('click', async () => {
+        const orgId = orgSelect.value;
+        const form = document.querySelector('.formulario');
+
+        if (!orgId) {
+            return alert('Debes seleccionar una organización.');
+        }
+
+        const formData = new FormData(form);
+        formData.set('organization_id', orgId);
+
+        const storedFiles = sessionStorage.getItem('datasetFiles');
+        if (storedFiles) {
+            formData.set('dataset_files_data', storedFiles);
+        }
+
+        const metaField = document.getElementById('metadata-content-field');
+        if (metaField && metaField.value) {
+            formData.set('metadata_content', metaField.value);
+        }
+
+        modal.style.display = 'none';
+        await publishToCkan(formData);
     });
+
+    if (ckanBtn) {
+        ckanBtn.addEventListener('click', async () => {
+            const form = document.querySelector('.formulario');
+            const identificadorInput = form.querySelector('input[name="identificador"]');
+            const hasCkanId = identificadorInput && identificadorInput.value.trim() !== '';
+
+            if (hasCkanId) {
+                if (!confirm('¿Seguro que quieres actualizar el dataset en CKAN con los nuevos metadatos?')) {
+                    return;
+                }
+                const formData = new FormData(form);
+
+                const metaField = document.getElementById('metadata-content-field');
+                if (metaField && metaField.value) {
+                    formData.set('metadata_content', metaField.value);
+                }
+
+                await publishToCkan(formData);
+            } else {
+                modal.style.display = 'flex';
+                await loadOrganizations();
+            }
+        });
+    }
 
     function getCookie(name) {
         let cookieValue = null;
