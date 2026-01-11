@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Perfil</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'web/css/auth.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="auth-container">
+        <div style="max-width: 800px; width: 100%;">
+            <h1 style="text-align: center; margin-bottom: 2rem;">Mi Perfil</h1>
+
+            {% if error %}
+            <div class="error-message">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <!-- Tarjeta de información personal -->
+            <div class="perfil-card">
+                <h2>Información Personal</h2>
+
+                <form method="post" action="{% url 'perfil_usuario' %}" class="auth-form">
+                    {% csrf_token %}
+
+                    <div class="campo">
+                        <label for="nombre">Nombre</label>
+                        <input type="text" id="nombre" name="nombre" class="input-text" value="{{ usuario.nombre }}"
+                            required>
+                    </div>
+
+                    <div class="campo">
+                        <label for="correo">Correo electrónico</label>
+                        <input type="email" id="correo" value="{{ usuario.correo }}" class="input-text" readonly>
+                        <small>El correo no se puede modificar</small>
+                    </div>
+
+                    <div class="campo">
+                        <label for="token_ckan">Token API de CKAN (opcional)</label>
+                        <input type="text" id="token_ckan" name="token_ckan" class="input-text"
+                            value="{{ usuario.token_ckan|default:'' }}" placeholder="Introduce tu token de API">
+                    </div>
+
+                    <h3>Cambiar Contraseña (opcional)</h3>
+
+                    <div class="campo">
+                        <label for="contrasena_actual">Contraseña actual</label>
+                        <input type="password" id="contrasena_actual" name="contrasena_actual" class="input-text"
+                            placeholder="Requerida para cambiar contraseña">
+                    </div>
+
+                    <div class="campo">
+                        <label for="nueva_contrasena">Nueva contraseña</label>
+                        <input type="password" id="nueva_contrasena" name="nueva_contrasena" class="input-text">
+                    </div>
+
+                    <div class="campo">
+                        <label for="confirmar_nueva_contrasena">Confirmar nueva contraseña</label>
+                        <input type="password" id="confirmar_nueva_contrasena" name="confirmar_nueva_contrasena"
+                            class="input-text">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </form>
+            </div>
+
+            <!-- Tarjeta de zona de peligro -->
+            <div class="perfil-card danger-zone">
+                <h2>Gestión de cuenta</h2>
+
+                <div class="action-row">
+                    <div class="action-info">
+                        <h4>Cerrar Sesión</h4>
+                        <p>Cerrar tu sesión actual</p>
+                    </div>
+                    <button onclick="confirmLogout()" class="btn btn-secondary">Cerrar Sesión</button>
+                </div>
+
+                <div class="action-row">
+                    <div class="action-info">
+                        <h4>Eliminar Cuenta</h4>
+                        <p>Eliminar permanentemente tu cuenta y todos tus datos</p>
+                    </div>
+                    <button onclick="confirmDelete()" class="btn btn-danger">Eliminar Cuenta</button>
+                </div>
+            </div>
+
+            <!-- Botón para volver -->
+            <div style="text-align: center; margin-top: 1.5rem;">
+                <a href="{% url 'inicio' %}" style="color: #3b82f6; text-decoration: none; font-weight: 600;">
+                    ← Volver al inicio
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para confirmar eliminación -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <h3>⚠️ Confirmar Eliminación de Cuenta</h3>
+            <p>Esta acción eliminará permanentemente:</p>
+            <ul>
+                <li>Tu cuenta de usuario</li>
+                <li>Todos tus datasets</li>
+                <li>Todos los archivos asociados</li>
+            </ul>
+            <p><strong>Esta acción NO se puede deshacer.</strong></p>
+
+            <form method="post" action="{% url 'eliminar_cuenta' %}">
+                {% csrf_token %}
+                <div class="campo">
+                    <label for="contrasena_confirmacion">Introduce tu contraseña para confirmar:</label>
+                    <input type="password" id="contrasena_confirmacion" name="contrasena_confirmacion"
+                        class="input-text" required>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" onclick="closeModal()" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Sí, Eliminar Mi Cuenta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para confirmar logout -->
+    <div id="logoutModal" class="modal">
+        <div class="modal-content">
+            <h3>¿Cerrar sesión?</h3>
+            <p>¿Estás seguro de que quieres cerrar tu sesión actual?</p>
+            <div class="modal-buttons">
+                <button onclick="closeLogoutModal()" class="btn btn-secondary">Cancelar</button>
+                <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Cerrar sesión</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function confirmLogout() {
+            document.getElementById('logoutModal').style.display = 'flex';
+        }
+
+        function closeLogoutModal() {
+            document.getElementById('logoutModal').style.display = 'none';
+        }
+
+        function confirmDelete() {
+            document.getElementById('deleteModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('deleteModal').style.display = 'none';
+        }
+
+        // Cerrar modales al hacer clic fuera de él
+        window.onclick = function (event) {
+            var deleteModal = document.getElementById('deleteModal');
+            var logoutModal = document.getElementById('logoutModal');
+
+            if (event.target == deleteModal) {
+                closeModal();
+            }
+            if (event.target == logoutModal) {
+                closeLogoutModal();
+            }
+        }
+    </script>
+</body>
+
+</html>

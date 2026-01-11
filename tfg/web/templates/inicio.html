@@ -6,14 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tus conjuntos de datos</title>
     {% load static %}
-    <link rel="stylesheet" href="{% static 'web/css/inicio.css' %}?v=20251104">
+    <link rel="stylesheet" href="{% static 'web/css/inicio.css' %}?v=20260111">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 
 <body>
     <header class="header">
         <h1>Tus conjuntos de datos</h1>
-        <button class="perfil-btn">👤</button>
+        <button class="perfil-btn" title="Mi perfil ({{ user_name }})" onclick="goToProfile()">👤</button>
     </header>
 
     <main class="contenedor">
@@ -28,11 +28,12 @@
                     <button class="btn visualizar"
                         data-url="{% url 'visualizar' conjunto.id_dataset %}">Visualizar</button>
                     <button class="btn editar"
-                        data-url="{% url 'editar_metadatos' conjunto.id_dataset %}">Editar</button>
+                        data-url="{% url 'editar_metadatos' conjunto.id_dataset %}">Metadatos</button>
                     <form method="post" action="{% url 'dataset_delete' conjunto.id_dataset %}" class="delete-form"
                         style="display:inline;">
                         {% csrf_token %}
-                        <button type="submit" class="btn eliminar">Eliminar</button>
+                        <button type="submit" class="btn eliminar"
+                            data-has-ckan="{% if conjunto.identificador %}true{% else %}false{% endif %}">Eliminar</button>
                     </form>
                 </div>
             </div>
@@ -44,8 +45,39 @@
 
     <button class="boton-flotante">+</button>
 
+    <div id="deleteDatasetModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <h3>¿Eliminar dataset?</h3>
+            <p>¿Estás seguro que quieres eliminar "<span id="deleteDatasetName"></span>"?</p>
+            <p style="color: #666; font-size: 0.9rem;">Esta acción no se puede deshacer.</p>
+
+            <form id="deleteDatasetForm" method="post" action="">
+                {% csrf_token %}
+
+                <div id="ckanOption"
+                    style="display:none; margin: 1rem 0; padding: 0.8rem; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px;">
+                    <label
+                        style="display: flex; align-items: center; gap: 0.8rem; cursor: pointer; color: #0c4a6e; font-weight: 500;">
+                        <input type="checkbox" name="delete_ckan" value="true" style="width: 18px; height: 18px;">
+                        <span>Eliminar también de CKAN</span>
+                    </label>
+                    <p style="margin: 0.3rem 0 0 2rem; font-size: 0.85rem; color: #0284c7;">
+                        Este dataset está publicado en CKAN.
+                    </p>
+                </div>
+
+                <div class="modal-buttons"
+                    style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+                    <button type="button" onclick="closeDeleteModal()" class="btn"
+                        style="background-color: #6b7280; color: white;">Cancelar</button>
+                    <button type="submit" class="btn eliminar">Eliminar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
-        // Redirigir al pulsar el botón + hacia la vista crear_conjunto
+        // Redirigir al pulsar el botón +
         document.addEventListener('DOMContentLoaded', function () {
             var btn = document.querySelector('.boton-flotante');
             if (btn) {
@@ -55,20 +87,55 @@
             }
         });
 
+        // Manejo del modal de eliminación
         document.addEventListener('DOMContentLoaded', function () {
+            // Interceptar envío de formularios de eliminación
             document.querySelectorAll('.delete-form').forEach(function (form) {
                 form.addEventListener('submit', function (e) {
                     e.preventDefault();
+
                     var tarjeta = form.closest('.tarjeta');
-                    var nombre = tarjeta ? (tarjeta.querySelector('h2') ? tarjeta.querySelector('h2').textContent : 'este conjunto') : 'este conjunto';
-                    if (confirm('¿Estás seguro que quieres eliminar "' + nombre + '"? Esta acción no se puede deshacer.')) {
-                        form.submit();
-                    }
+                    var nombre = tarjeta.querySelector('h2').textContent;
+                    var actionUrl = form.getAttribute('action');
+
+                    // Verificar si tiene CKAN ID (usando un atributo data que añadiremos al botón o form)
+                    // Como no podemos modificar fácilmente el loop sin ver todo el archivo, 
+                    // asumiremos que pasamos el dato en el botón submit
+                    var btnEliminar = form.querySelector('.eliminar');
+                    var hasCkan = btnEliminar.getAttribute('data-has-ckan') === 'true';
+
+                    openDeleteModal(nombre, actionUrl, hasCkan);
                 });
             });
         });
 
-        // Redirección para botones "Visualizar" manteniendo <button>
+        function openDeleteModal(name, actionUrl, hasCkan) {
+            document.getElementById('deleteDatasetName').textContent = name;
+            document.getElementById('deleteDatasetForm').action = actionUrl;
+
+            var ckanOption = document.getElementById('ckanOption');
+            ckanOption.style.display = hasCkan ? 'block' : 'none';
+            // Reset checkbox
+            if (ckanOption.querySelector('input')) {
+                ckanOption.querySelector('input').checked = false;
+            }
+
+            document.getElementById('deleteDatasetModal').style.display = 'flex';
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteDatasetModal').style.display = 'none';
+        }
+
+        // Cerrar modal al hacer clic fuera
+        window.onclick = function (event) {
+            var modal = document.getElementById('deleteDatasetModal');
+            if (event.target == modal) {
+                closeDeleteModal();
+            }
+        }
+
+        // Redirección para botones "Visualizar"
         document.querySelectorAll('button.visualizar').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var url = btn.getAttribute('data-url');
@@ -76,13 +143,18 @@
             });
         });
 
-        // Redirección para botones "Editar" manteniendo <button>
+        // Redirección para botones "Editar"
         document.querySelectorAll('button.editar').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 var url = btn.getAttribute('data-url');
                 if (url) window.location.href = url;
             });
         });
+
+        // Función para ir al perfil
+        function goToProfile() {
+            window.location.href = "{% url 'perfil_usuario' %}";
+        }
     </script>
 </body>
 

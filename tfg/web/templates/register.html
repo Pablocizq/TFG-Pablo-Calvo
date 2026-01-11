@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrarse</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'web/css/auth.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <h1>Crear Cuenta</h1>
+
+            {% if error %}
+            <div class="error-message">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <form method="post" class="auth-form">
+                {% csrf_token %}
+
+                <div class="campo">
+                    <label for="nombre">Nombre</label>
+                    <input type="text" id="nombre" name="nombre" class="input-text" value="{{ nombre }}" required>
+                </div>
+
+                <div class="campo">
+                    <label for="correo">Correo electrónico</label>
+                    <input type="email" id="correo" name="correo" class="input-text" value="{{ correo }}" required>
+                </div>
+
+                <div class="campo">
+                    <label for="token_ckan">Token API de CKAN (opcional)</label>
+                    <input type="text" id="token_ckan" name="token_ckan" class="input-text" value="{{ token_ckan }}"
+                        placeholder="Deja en blanco si no tienes uno">
+                </div>
+
+                <div class="campo">
+                    <label for="contrasena">Contraseña</label>
+                    <input type="password" id="contrasena" name="contrasena" class="input-text" required>
+                </div>
+
+                <div class="campo">
+                    <label for="confirmar_contrasena">Confirmar contraseña</label>
+                    <input type="password" id="confirmar_contrasena" name="confirmar_contrasena" class="input-text"
+                        required>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Registrarse</button>
+            </form>
+
+            <div class="auth-link">
+                ¿Ya tienes cuenta? <a href="{% url 'login' %}">Inicia sesión</a>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

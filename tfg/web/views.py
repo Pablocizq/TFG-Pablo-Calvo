@@ -3,7 +3,8 @@ from django.views.decorators.http import require_POST
 from django.db import connection, DatabaseError
 from django.http import HttpResponse, JsonResponse
 from django.utils.text import slugify
-from .models import Dataset
+from django.contrib.auth.hashers import make_password, check_password
+from .models import Dataset, Usuario
 from .parsers.property_extraction_strategy import (
     CSVExtractionStrategy,
     JSONExtractionStrategy,
@@ -54,12 +55,304 @@ INFERENCIA_CAMPOS = [
 ]
 
 
+def login_view(request):
+    """Vista de login que valida correo y contraseña."""
+    if request.method == 'POST':
+        correo = request.POST.get('correo', '').strip()
+        contrasena = request.POST.get('contrasena', '').strip()
+        
+        if not correo or not contrasena:
+            return render(request, 'login.html', {
+                'error': 'Por favor completa todos los campos.'
+            })
+        
+        try:
+            # Buscar usuario por correo
+            usuario = Usuario.objects.filter(correo=correo).first()
+            
+            if usuario and check_password(contrasena, usuario.contrasena):
+                # Login exitoso: guardar user_id en sesión
+                request.session['user_id'] = usuario.id_usuario
+                request.session['user_name'] = usuario.nombre
+                return redirect('inicio')
+            else:
+                return render(request, 'login.html', {
+                    'error': 'Correo o contraseña incorrectos.'
+                })
+        except Exception as e:
+            return render(request, 'login.html', {
+                'error': f'Error al iniciar sesión: {str(e)}'
+            })
+    
+    # GET request
+    return render(request, 'login.html')
+
+
+def register_view(request):
+    """Vista de registro que crea un nuevo usuario."""
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+        correo = request.POST.get('correo', '').strip()
+        contrasena = request.POST.get('contrasena', '').strip()
+        confirmar_contrasena = request.POST.get('confirmar_contrasena', '').strip()
+        token_ckan = request.POST.get('token_ckan', '').strip() or None  # None si está vacío
+        
+        # Validaciones
+        if not nombre or not correo or not contrasena or not confirmar_contrasena:
+            return render(request, 'register.html', {
+                'error': 'Por favor completa todos los campos.',
+                'nombre': nombre,
+                'correo': correo,
+                'token_ckan': token_ckan
+            })
+        
+        if contrasena != confirmar_contrasena:
+            return render(request, 'register.html', {
+                'error': 'Las contraseñas no coinciden.',
+                'nombre': nombre,
+                'correo': correo,
+                'token_ckan': token_ckan
+            })
+        
+        # Verificar si el correo ya existe
+        if Usuario.objects.filter(correo=correo).exists():
+            return render(request, 'register.html', {
+                'error': 'Este correo ya está registrado.',
+                'nombre': nombre,
+                'token_ckan': token_ckan
+            })
+        
+        try:
+            # Crear usuario con contraseña hasheada
+            with connection.cursor() as cursor:
+                contrasena_hash = make_password(contrasena)
+                cursor.execute(
+                    """
+                    INSERT INTO usuario (nombre, correo, contrasena, token_ckan)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING id_usuario
+                    """,
+                    [nombre, correo, contrasena_hash, token_ckan]
+                )
+                row = cursor.fetchone()
+                user_id = row[0] if row else None
+            
+            if user_id:
+                # Iniciar sesión automáticamente
+                request.session['user_id'] = user_id
+                request.session['user_name'] = nombre
+                return redirect('inicio')
+            else:
+                return render(request, 'register.html', {
+                    'error': 'Error al crear el usuario.',
+                    'nombre': nombre,
+                    'correo': correo
+                })
+        except DatabaseError as e:
+            return render(request, 'register.html', {
+                'error': f'Error en la base de datos: {str(e)}',
+                'nombre': nombre,
+                'correo': correo
+            })
+    
+    # GET request
+    return render(request, 'register.html')
+
+
+def logout_view(request):
+    """Vista de logout que limpia la sesión."""
+    request.session.flush()
+    return redirect('login')
+
+
+def perfil_usuario(request):
+    """Vista de perfil de usuario para ver y editar información."""
+    # Verificar autenticación
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return redirect('login')
+    
+    # Obtener datos del usuario
+    try:
+        usuario = Usuario.objects.get(id_usuario=user_id)
+    except Usuario.DoesNotExist:
+        request.session.flush()
+        return redirect('login')
+    
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+        token_ckan = request.POST.get('token_ckan', '').strip() or None
+        contrasena_actual = request.POST.get('contrasena_actual', '').strip()
+        nueva_contrasena = request.POST.get('nueva_contrasena', '').strip()
+        confirmar_nueva_contrasena = request.POST.get('confirmar_nueva_contrasena', '').strip()
+        
+        # Validar nombre
+        if not nombre:
+            return render(request, 'usuario.html', {
+                'usuario': usuario,
+                'error': 'El nombre no puede estar vacío.'
+            })
+        
+        # Si se intenta cambiar contraseña
+        cambiar_contrasena = nueva_contrasena or confirmar_nueva_contrasena
+        
+        if cambiar_contrasena:
+            # Validar que se proporcionó la contraseña actual
+            if not contrasena_actual:
+                return render(request, 'usuario.html', {
+                    'usuario': usuario,
+                    'error': 'Debes introducir tu contraseña actual para cambiarla.'
+                })
+            
+            # Verificar contraseña actual
+            if not check_password(contrasena_actual, usuario.contrasena):
+                return render(request, 'usuario.html', {
+                    'usuario': usuario,
+                    'error': 'La contraseña actual es incorrecta.'
+                })
+            
+            # Verificar que las nuevas contraseñas coincidan
+            if nueva_contrasena != confirmar_nueva_contrasena:
+                return render(request, 'usuario.html', {
+                    'usuario': usuario,
+                    'error': 'Las nuevas contraseñas no coinciden.'
+                })
+            
+            # Actualizar con nueva contraseña
+            try:
+                with connection.cursor() as cursor:
+                    contrasena_hash = make_password(nueva_contrasena)
+                    cursor.execute(
+                        """
+                        UPDATE usuario 
+                        SET nombre = %s, token_ckan = %s, contrasena = %s
+                        WHERE id_usuario = %s
+                        """,
+                        [nombre, token_ckan, contrasena_hash, user_id]
+                    )
+            except DatabaseError as e:
+                return render(request, 'usuario.html', {
+                    'usuario': usuario,
+                    'error': f'Error al actualizar: {str(e)}'
+                })
+        else:
+            # Actualizar solo nombre y token (sin cambiar contraseña)
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE usuario 
+                        SET nombre = %s, token_ckan = %s
+                        WHERE id_usuario = %s
+                        """,
+                        [nombre, token_ckan, user_id]
+                    )
+            except DatabaseError as e:
+                return render(request, 'usuario.html', {
+                    'usuario': usuario,
+                    'error': f'Error al actualizar: {str(e)}'
+                })
+        
+        # Actualizar sesión si cambió el nombre
+        request.session['user_name'] = nombre
+        
+        # Redirigir a inicio con mensaje de éxito
+        return redirect('inicio')
+    
+    # GET request
+    return render(request, 'usuario.html', {'usuario': usuario})
+
+
+@require_POST
+def eliminar_cuenta(request):
+    """Vista para eliminar cuenta de usuario y todos sus datos."""
+    # Verificar autenticación
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return redirect('login')
+    
+    # Obtener contraseña de confirmación
+    contrasena_confirmacion = request.POST.get('contrasena_confirmacion', '').strip()
+    
+    if not contrasena_confirmacion:
+        # Volver a perfil con error
+        try:
+            usuario = Usuario.objects.get(id_usuario=user_id)
+            return render(request, 'usuario.html', {
+                'usuario': usuario,
+                'error': 'Debes introducir tu contraseña para eliminar la cuenta.'
+            })
+        except Usuario.DoesNotExist:
+            return redirect('login')
+    
+    # Verificar contraseña
+    try:
+        usuario = Usuario.objects.get(id_usuario=user_id)
+        if not check_password(contrasena_confirmacion, usuario.contrasena):
+            return render(request, 'usuario.html', {
+                'usuario': usuario,
+                'error': 'Contraseña incorrecta. No se puede eliminar la cuenta.'
+            })
+    except Usuario.DoesNotExist:
+        return redirect('login')
+    
+    # Eliminar usuario y todos sus datos
+    try:
+        with connection.cursor() as cursor:
+            # 1. Obtener todos los datasets del usuario
+            cursor.execute(
+                "SELECT id_dataset FROM dataset WHERE id_usuario = %s",
+                [user_id]
+            )
+            datasets = cursor.fetchall()
+            dataset_ids = [row[0] for row in datasets]
+            
+            # 2. Eliminar ficheros de esos datasets
+            if dataset_ids:
+                placeholders = ','.join(['%s'] * len(dataset_ids))
+                cursor.execute(
+                    f"DELETE FROM fichero WHERE id_dataset IN ({placeholders})",
+                    dataset_ids
+                )
+            
+            # 3. Eliminar datasets del usuario
+            cursor.execute(
+                "DELETE FROM dataset WHERE id_usuario = %s",
+                [user_id]
+            )
+            
+            # 4. Eliminar usuario
+            cursor.execute(
+                "DELETE FROM usuario WHERE id_usuario = %s",
+                [user_id]
+            )
+    except DatabaseError as e:
+        # En caso de error, volver con mensaje
+        return render(request, 'usuario.html', {
+            'usuario': usuario,
+            'error': f'Error al eliminar la cuenta: {str(e)}'
+        })
+    
+    # Limpiar sesión y redirigir a login
+    request.session.flush()
+    return redirect('login')
+
+
 def inicio(request):
-    # Filtramos por el usuario 1 según lo solicitado
-    conjuntos = Dataset.objects.filter(id_usuario=1)
-    for conjunto in conjuntos:
-        print(conjunto.nombre)
-    return render(request, 'inicio.html', {'conjuntos': conjuntos})
+    # Verificar autenticación
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return redirect('login')
+    
+    # Obtener nombre de usuario para mostrarlo
+    user_name = request.session.get('user_name', 'Usuario')
+    
+    # Filtrar conjuntos por el usuario autenticado
+    conjuntos = Dataset.objects.filter(id_usuario=user_id)
+    return render(request, 'inicio.html', {
+        'conjuntos': conjuntos,
+        'user_name': user_name
+    })
 
 
 @require_POST
@@ -70,6 +363,20 @@ def dataset_delete(request, pk):
     manejar el caso en que no exista.
     """
     dataset = get_object_or_404(Dataset, pk=pk)
+    
+    # Verificar si se solicitó borrar de CKAN
+    delete_ckan = request.POST.get('delete_ckan') == 'true'
+    
+    # Si se solicitó borrar de CKAN y el dataset tiene identificador
+    if delete_ckan and dataset.identificador:
+        user_id = request.session.get('user_id')
+        if user_id:
+            try:
+                ckan = CkanClient(user_id)
+                ckan.delete_dataset(dataset.identificador)
+            except Exception as e:
+                # En un entorno real, usar logging. Por ahora imprimimos en consola
+                print(f"Error borrando dataset {dataset.identificador} de CKAN: {e}")
     
     with connection.cursor() as cursor:
         cursor.execute("DELETE FROM fichero WHERE id_dataset = %s", [dataset.pk])
@@ -139,7 +446,7 @@ def crear_conjunto(request):
                     RETURNING id_dataset, fecha_creacion;
                     """,
                     [
-                        1, name, identificador, titulo, descripcion, dcat_type, idioma, tema,
+                        request.session.get('user_id', 1), name, identificador, titulo, descripcion, dcat_type, idioma, tema,
                         palabras_clave, extension_temporal, extension_espacial, url_descarga, issued, modificado,
                         publisher_name, url_acceso, formato, licencia, derechos, descripcion_distribucion, url_metadatos, contenido_metadatos
                     ]
@@ -244,11 +551,8 @@ def crear_conjunto(request):
 
         # Insert OK
         if next_page == 'metadatos':
-            # Volvemos a la plantilla de metadatos y mostramos notificación de éxito
-            return render(request, 'metadatos.html', {
-                'success': 'Dataset guardado correctamente.',
-                'name': name,
-            })
+            # Redirigir a inicio.html como solicitó el usuario
+            return redirect('inicio')
     # GET
     return render(request, 'crear_conjunto.html')
 
@@ -1174,14 +1478,20 @@ Contenido del archivo:
         return JsonResponse({'error': f'Error inesperado: {str(e)}'}, status=500)
 
 
+
 def ckan_proxies(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Only POST allowed'}, status=405)
     
+    # Authenticate user
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
+
     try:
         data = json.loads(request.body)
         action = data.get('action')
-        ckan = CkanClient(user_id=1)
+        ckan = CkanClient(user_id=user_id)
         
         if action == 'get_organizations':
             response = ckan.get_user_organizations()
@@ -1212,10 +1522,15 @@ def ckan_proxies(request):
 def publish_to_ckan(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Only POST allowed'}, status=405)
+    
+    # Authenticate user
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return JsonResponse({'error': 'Authentication required'}, status=401)
         
     try:
         
-        ckan = CkanClient(user_id=1)
+        ckan = CkanClient(user_id=user_id)
         
         local_id = request.POST.get('id_dataset')
         ckan_id = request.POST.get('identificador')
@@ -1257,7 +1572,7 @@ def publish_to_ckan(request):
              return JsonResponse({'error': 'Organization ID is required for new datasets'}, status=400)
 
         with connection.cursor() as cursor:
-            cursor.execute("SELECT nombre, correo FROM usuario WHERE id_usuario = 1")
+            cursor.execute("SELECT nombre, correo FROM usuario WHERE id_usuario = %s", [user_id])
             user_row = cursor.fetchone()
             author_name = user_row[0] if user_row else ''
             author_email = user_row[1] if user_row else ''
@@ -1312,7 +1627,7 @@ def publish_to_ckan(request):
             name = request.POST.get('name') or title
             
             db_values = [
-                1, name, identificador, title, nz(request.POST.get('descripcion')), 
+                user_id, name, identificador, title, nz(request.POST.get('descripcion')), 
                 nz(request.POST.get('dcat_type')), nz(request.POST.get('idioma')), nz(request.POST.get('tema')),
                 nz(request.POST.get('palabras_clave')), nz(request.POST.get('extension_temporal')), 
                 nz(request.POST.get('extension_espacial')), nz(request.POST.get('url_descarga')),

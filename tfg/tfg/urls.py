@@ -19,6 +19,6 @@ from django.urls import path, include
 from django.views.generic import RedirectView
 
 urlpatterns = [
-    path('', RedirectView.as_view(url='/inicio/', permanent=False)),
+    path('', RedirectView.as_view(url='/login/', permanent=False)),
     path('', include('web.urls')),
 ]
