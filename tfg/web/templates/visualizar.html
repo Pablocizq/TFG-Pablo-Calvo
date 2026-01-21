@@ -37,7 +37,31 @@
             <div class="bloque">
                 <h3 class="bloque-titulo">Extracto del contenido:</h3>
                 <div class="extracto">
+                    {% if csv_context %}
+                    <div class="tabla-contenedor">
+                        <table class="csv-table">
+                            <thead>
+                                <tr>
+                                    {% for header in csv_context.headers %}
+                                    <th>{{ header }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in csv_context.rows %}
+                                <tr>
+                                    {% for cell in row %}
+                                    <td>{{ cell }}</td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        <p class="nota-tabla">Mostrando las primeras 20 filas.</p>
+                    </div>
+                    {% else %}
                     <pre class="extracto-pre">{{ extracto }}</pre>
+                    {% endif %}
                 </div>
             </div>
 
@@ -52,7 +76,7 @@
                     <span class="contador-paginacion">
                         Fichero {{ current_num }} de {{ total_ficheros }}
                         {% if fichero_actual %}
-                        - {{ fichero_actual.nombre_archivo }} ({{ fichero_actual.tipo_formato }})
+                        - {{ fichero_actual.nombre_archivo }}
                         {% endif %}
                     </span>
 

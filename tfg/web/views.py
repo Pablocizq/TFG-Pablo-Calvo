@@ -612,18 +612,32 @@ def visualizar(request, pk):
     propiedades_lista = []
     extracto = 'No hay extractos para mostrar'
     fichero_actual = None
+    csv_data = None  # Store CSV data here
     
     if ficheros_list and fichero_index < len(ficheros_list):
         fichero_actual = ficheros_list[fichero_index]
         contenido = fichero_actual['contenido']
         tipo_formato = fichero_actual['tipo_formato']
+        nombre_archivo = fichero_actual['nombre_archivo'] or ''
+        
+        # Detect actual format from filename extension (more reliable than tipo_formato)
+        actual_format = tipo_formato  # Default to DB value
+        nombre_lower = nombre_archivo.lower()
+        if nombre_lower.endswith('.csv'):
+            actual_format = 'CSV'
+        elif nombre_lower.endswith('.json'):
+            actual_format = 'JSON'
+        elif nombre_lower.endswith('.ttl'):
+            actual_format = 'RDF-TURTLE'
+        elif nombre_lower.endswith('.xml') or nombre_lower.endswith('.rdf'):
+            actual_format = 'RDF-XML'
         
         if contenido:
             if _es_base64(contenido):
                 propiedades_lista = ['Archivo binario codificado en base64']
                 extracto = "Este archivo está codificado en base64. No se puede mostrar como texto."
             else:
-                strategy = _get_extraction_strategy_by_format(tipo_formato)
+                strategy = _get_extraction_strategy_by_format(actual_format)
                 
                 if strategy:
                     try:
@@ -633,9 +647,66 @@ def visualizar(request, pk):
                         print(f"Error extracting properties: {e}")
                         propiedades_lista = [f'Error al extraer propiedades: {str(e)}']
                 else:
-                    propiedades_lista = [f'Formato no soportado: {tipo_formato}']
+                    propiedades_lista = [f'Formato no soportado: {actual_format}']
                 
-                extracto = contenido[:2000] + ('...' if len(contenido) > 2000 else '')
+                # Logic for CSV Table Visualization
+                if actual_format and actual_format.upper() == 'CSV':
+                    try:
+                        import csv
+                        from io import StringIO
+                        
+                        # Use StringIO to treat string as file
+                        f = StringIO(contenido)
+                        
+                        # Attempt to detect delimiter
+                        try:
+                            sample = contenido[:1024]
+                            sniffer = csv.Sniffer()
+                            dialect = sniffer.sniff(sample, delimiters=',;\t|')
+                            delimiter = dialect.delimiter
+                        except csv.Error:
+                            # Fallback manual detection
+                            delimiters = [',', ';', '\t', '|']
+                            counts = {d: contenido.count(d) for d in delimiters}
+                            delimiter = max(counts, key=counts.get) if counts else ','
+                            
+                        # Read CSV
+                        reader = csv.reader(f, delimiter=delimiter)
+                        
+                        # Extract headers and rows (limit to 20 rows)
+                        headers = next(reader, [])
+                        rows = []
+                        for i, row in enumerate(reader):
+                            if i >= 20:
+                                break
+                            rows.append(row)
+                            
+                        csv_data = {
+                            'headers': headers,
+                            'rows': rows,
+                            'delimiter': delimiter
+                        }
+
+                    except Exception as e:
+                        pass  # Silently fail, csv_data will remain None
+                        csv_data = None  # Ensure csv_data is None on error
+                else:
+                    # Not a CSV file - ensure csv_data remains None
+                    csv_data = None
+                
+                # Format JSON for better readability
+                if actual_format and actual_format.upper() == 'JSON':
+                    try:
+                        # Try to parse and pretty-print the JSON
+                        json_obj = json.loads(contenido)
+                        extracto = json.dumps(json_obj, indent=2, ensure_ascii=False)
+                        # Limit to first 2000 chars after formatting
+                        if len(extracto) > 2000:
+                            extracto = extracto[:2000] + '\n... (contenido truncado)'
+                    except (json.JSONDecodeError, Exception):
+                        extracto = contenido[:2000] + ('...' if len(contenido) > 2000 else '')
+                else:
+                    extracto = contenido[:2000] + ('...' if len(contenido) > 2000 else '')
     
     prev_index = fichero_index - 1 if fichero_index > 0 else None
     next_index = fichero_index + 1 if fichero_index < len(ficheros_list) - 1 else None
@@ -653,6 +724,11 @@ def visualizar(request, pk):
         'propiedades_lista': propiedades_lista,
         'extracto': extracto,
     }
+    
+    # Add CSV context if available
+    if csv_data:
+        context['csv_context'] = csv_data
+    
     return render(request, 'visualizar.html', context)
 
 
